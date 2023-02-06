@@ -1,0 +1,17 @@
+[package]
+name = "xmp-writer"
+version = "0.1.0"
+authors = ["Martin Haug <mhaug@live.de>"]
+edition = "2021"
+description = "A step-by-step XMP writer"
+repository = "https://github.com/typst/xmp-writer"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+categories = ["encoding"]
+keywords = ["metadata", "xmp", "rdf", "writer", "serialization"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+"quick-xml" = "0.27"
+smallvec = "1.10.0"

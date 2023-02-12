@@ -6,8 +6,11 @@ use std::{
 
 use crate::XmpWriter;
 
+/// XML Namespaces for the XMP properties.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum XmpNamespace {
+#[allow(missing_docs)]
+#[non_exhaustive]
+pub enum Namespace {
     Rdf,
     DublinCore,
     Xmp,
@@ -31,7 +34,8 @@ pub enum XmpNamespace {
     Custom((String, String)),
 }
 
-impl XmpNamespace {
+impl Namespace {
+    /// Returns the URL for the namespace.
     pub fn url(&self) -> &str {
         match self {
             Self::Rdf => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
@@ -58,6 +62,7 @@ impl XmpNamespace {
         }
     }
 
+    /// Returns the prefix for the namespace.
     pub fn prefix(&self) -> &str {
         match self {
             Self::Rdf => "rdf",
@@ -85,21 +90,30 @@ impl XmpNamespace {
     }
 }
 
-pub struct XmpElement<'a> {
+/// A XMP property.
+///
+/// Created by [`XmpWriter::element`], [`Array::element`],
+/// [`Array::element_with_attrs`], [`Struct::element`],
+/// [`Struct::element_with_attrs`].
+pub struct Element<'a> {
     writer: &'a mut XmpWriter,
     name: &'a str,
-    namespace: XmpNamespace,
+    namespace: Namespace,
 }
 
-impl<'a> XmpElement<'a> {
-    pub fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: XmpNamespace) -> Self {
+impl<'a> Element<'a> {
+    pub(crate) fn start(
+        writer: &'a mut XmpWriter,
+        name: &'a str,
+        namespace: Namespace,
+    ) -> Self {
         Self::with_attrs(writer, name, namespace, iter::empty())
     }
 
-    pub fn with_attrs<'b>(
+    fn with_attrs<'b>(
         writer: &'a mut XmpWriter,
         name: &'a str,
-        namespace: XmpNamespace,
+        namespace: Namespace,
         attrs: impl IntoIterator<Item = (&'b str, &'b str)>,
     ) -> Self {
         write!(writer.buf, "<{}:{}", namespace.prefix(), name).unwrap();
@@ -109,27 +123,27 @@ impl<'a> XmpElement<'a> {
         }
 
         writer.namespaces.insert(namespace.clone());
-        XmpElement {
-            writer,
-            name,
-            namespace,
-        }
+        Element { writer, name, namespace }
     }
 
+    /// Sets the property to a primitive value.
     pub fn value(self, val: impl XmpType) {
         write!(self.writer.buf, ">").unwrap();
         val.write(&mut self.writer.buf).unwrap();
         self.close();
     }
 
-    pub fn obj(self) -> XmpStruct<'a> {
+    /// Start writing a struct as the property value.
+    pub fn obj(self) -> Struct<'a> {
+        self.writer.namespaces.insert(Namespace::Rdf);
         write!(self.writer.buf, " rdf:parseType=\"Resource\">").unwrap();
-        XmpStruct::start(self.writer, self.name, self.namespace)
+        Struct::start(self.writer, self.name, self.namespace)
     }
 
-    pub fn array(self, kind: RdfCollectionType) -> ArrayWriter<'a> {
+    /// Start writing an array as the property value.
+    pub fn array(self, kind: RdfCollectionType) -> Array<'a> {
         write!(self.writer.buf, ">").unwrap();
-        ArrayWriter::start(self.writer, kind, self.name, self.namespace)
+        Array::start(self.writer, kind, self.name, self.namespace)
     }
 
     fn close(self) {
@@ -142,6 +156,7 @@ impl<'a> XmpElement<'a> {
         .unwrap();
     }
 
+    /// Set a language alternative of primitive values as the property value.
     pub fn language_alternative<'b>(
         self,
         items: impl IntoIterator<Item = (Option<LangId<'b>>, &'b str)>,
@@ -155,6 +170,7 @@ impl<'a> XmpElement<'a> {
         drop(array);
     }
 
+    /// Start writing an unordered array (`rdf:Bag`) as the property value.
     pub fn unordered_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
         let mut array = self.array(RdfCollectionType::Bag);
         for item in items {
@@ -162,6 +178,7 @@ impl<'a> XmpElement<'a> {
         }
     }
 
+    /// Start writing an ordered array (`rdf:Seq`) as the property value.
     pub fn ordered_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
         let mut array = self.array(RdfCollectionType::Seq);
         for item in items {
@@ -169,6 +186,7 @@ impl<'a> XmpElement<'a> {
         }
     }
 
+    /// Start writing an alternative array (`rdf:Alt`) as the property value.
     pub fn alternative_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
         let mut array = self.array(RdfCollectionType::Alt);
         for item in items {
@@ -177,43 +195,43 @@ impl<'a> XmpElement<'a> {
     }
 }
 
-pub struct ArrayWriter<'a> {
+/// An XMP array value.
+///
+/// Created by [`Element::array`].
+pub struct Array<'a> {
     writer: &'a mut XmpWriter,
     kind: RdfCollectionType,
     name: &'a str,
-    namespace: XmpNamespace,
+    namespace: Namespace,
 }
 
-impl<'a> ArrayWriter<'a> {
-    pub fn start(
+impl<'a> Array<'a> {
+    fn start(
         writer: &'a mut XmpWriter,
         kind: RdfCollectionType,
         name: &'a str,
-        namespace: XmpNamespace,
+        namespace: Namespace,
     ) -> Self {
-        writer.namespaces.insert(XmpNamespace::Rdf);
+        writer.namespaces.insert(Namespace::Rdf);
         write!(writer.buf, "<rdf:{}>", kind.rdf_type()).unwrap();
-        Self {
-            writer,
-            kind,
-            name,
-            namespace,
-        }
+        Self { writer, kind, name, namespace }
     }
 
-    pub fn element(&mut self) -> XmpElement<'_> {
+    /// Start writing an element in the array.
+    pub fn element(&mut self) -> Element<'_> {
         self.element_with_attrs(iter::empty())
     }
 
+    /// Start writing an element with attributes in the array.
     pub fn element_with_attrs(
         &mut self,
         attrs: impl IntoIterator<Item = (&'a str, &'a str)>,
-    ) -> XmpElement<'_> {
-        XmpElement::with_attrs(self.writer, "li", XmpNamespace::Rdf, attrs)
+    ) -> Element<'_> {
+        Element::with_attrs(self.writer, "li", Namespace::Rdf, attrs)
     }
 }
 
-impl Drop for ArrayWriter<'_> {
+impl Drop for Array<'_> {
     fn drop(&mut self) {
         write!(
             self.writer.buf,
@@ -226,36 +244,37 @@ impl Drop for ArrayWriter<'_> {
     }
 }
 
-pub struct XmpStruct<'a> {
+/// An XMP struct value.
+///
+/// Created by [`Element::obj`].
+pub struct Struct<'a> {
     writer: &'a mut XmpWriter,
     name: &'a str,
-    namespace: XmpNamespace,
+    namespace: Namespace,
 }
 
-impl<'a> XmpStruct<'a> {
-    pub fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: XmpNamespace) -> Self {
-        Self {
-            writer,
-            name,
-            namespace,
-        }
+impl<'a> Struct<'a> {
+    fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: Namespace) -> Self {
+        Self { writer, name, namespace }
     }
 
-    pub fn element(&mut self, name: &'a str, namespace: XmpNamespace) -> XmpElement<'_> {
+    /// Start writing a property in the struct.
+    pub fn element(&mut self, name: &'a str, namespace: Namespace) -> Element<'_> {
         self.element_with_attrs(name, namespace, iter::empty())
     }
 
+    /// Start writing a property with attributes in the struct.
     pub fn element_with_attrs<'b>(
         &mut self,
         name: &'a str,
-        namespace: XmpNamespace,
+        namespace: Namespace,
         attrs: impl IntoIterator<Item = (&'b str, &'b str)>,
-    ) -> XmpElement<'_> {
-        XmpElement::with_attrs(self.writer, name, namespace, attrs)
+    ) -> Element<'_> {
+        Element::with_attrs(self.writer, name, namespace, attrs)
     }
 }
 
-impl Drop for XmpStruct<'_> {
+impl Drop for Struct<'_> {
     fn drop(&mut self) {
         write!(
             self.writer.buf,
@@ -267,7 +286,9 @@ impl Drop for XmpStruct<'_> {
     }
 }
 
+/// Primitive XMP types.
 pub trait XmpType {
+    /// Write the value to the buffer.
     fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error>;
 }
 
@@ -323,14 +344,19 @@ impl XmpType for &str {
     }
 }
 
+/// Types of RDF collections.
 pub enum RdfCollectionType {
+    /// An ordered array / sequence.
     Seq,
+    /// An unordered array / bag.
     Bag,
+    /// An alternative array.
     Alt,
 }
 
 impl RdfCollectionType {
-    fn rdf_type(&self) -> &'static str {
+    /// The RDF type name for this collection type.
+    pub fn rdf_type(&self) -> &'static str {
         match self {
             RdfCollectionType::Seq => "Seq",
             RdfCollectionType::Bag => "Bag",
@@ -339,6 +365,8 @@ impl RdfCollectionType {
     }
 }
 
+/// A language specifier as defined in RFC 3066. Can also be `x-default` if the
+/// language is not known.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LangId<'a>(pub &'a str);
 
@@ -354,8 +382,9 @@ impl Default for LangId<'_> {
     }
 }
 
+/// A date and time.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct XmpDate {
+pub struct DateTime {
     year: u16,
     month: Option<u8>,
     day: Option<u8>,
@@ -366,33 +395,8 @@ pub struct XmpDate {
     tz_minute: Option<i8>,
 }
 
-impl XmpDate {
-    pub fn date(year: u16, month: u8, day: u8) -> Self {
-        Self {
-            year,
-            month: Some(month),
-            day: Some(day),
-            hour: None,
-            minute: None,
-            second: None,
-            tz_hour: None,
-            tz_minute: None,
-        }
-    }
-
-    pub fn local_time(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Self {
-        Self {
-            year,
-            month: Some(month),
-            day: Some(day),
-            hour: Some(hour),
-            minute: Some(minute),
-            second: Some(second),
-            tz_hour: None,
-            tz_minute: None,
-        }
-    }
-
+impl DateTime {
+    /// Create a new date and time with all fields.
     pub fn new(
         year: u16,
         month: u8,
@@ -414,12 +418,47 @@ impl XmpDate {
             tz_minute: Some(tz_minute),
         }
     }
+
+    /// Create a new date and time without a timezone.
+    pub fn date(year: u16, month: u8, day: u8) -> Self {
+        Self {
+            year,
+            month: Some(month),
+            day: Some(day),
+            hour: None,
+            minute: None,
+            second: None,
+            tz_hour: None,
+            tz_minute: None,
+        }
+    }
+
+    /// Create a new date and time without a timezone.
+    pub fn local_time(
+        year: u16,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+    ) -> Self {
+        Self {
+            year,
+            month: Some(month),
+            day: Some(day),
+            hour: Some(hour),
+            minute: Some(minute),
+            second: Some(second),
+            tz_hour: None,
+            tz_minute: None,
+        }
+    }
 }
 
-impl XmpType for XmpDate {
+impl XmpType for DateTime {
     fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
         match self {
-            XmpDate {
+            DateTime {
                 year,
                 month: None,
                 day: None,
@@ -431,7 +470,7 @@ impl XmpType for XmpDate {
             } => {
                 write!(buf, "{:04}", year)
             }
-            XmpDate {
+            DateTime {
                 year,
                 month: Some(month),
                 day: None,
@@ -443,7 +482,7 @@ impl XmpType for XmpDate {
             } => {
                 write!(buf, "{:04}-{:02}", year, month)
             }
-            XmpDate {
+            DateTime {
                 year,
                 month: Some(month),
                 day: Some(day),
@@ -455,7 +494,7 @@ impl XmpType for XmpDate {
             } => {
                 write!(buf, "{:04}-{:02}-{:02}", year, month, day)
             }
-            XmpDate {
+            DateTime {
                 year,
                 month: Some(month),
                 day: Some(day),
@@ -475,7 +514,7 @@ impl XmpType for XmpDate {
                     minute.unwrap_or_default()
                 )
             }
-            XmpDate {
+            DateTime {
                 year,
                 month: Some(month),
                 day: Some(day),
@@ -491,7 +530,7 @@ impl XmpType for XmpDate {
                     year, month, day, hour, minute, second
                 )
             }
-            XmpDate {
+            DateTime {
                 year,
                 month: Some(month),
                 day: Some(day),
@@ -521,18 +560,29 @@ impl XmpType for XmpDate {
     }
 }
 
+/// The intended use of the resource.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RenditionClass {
+    /// The master resource.
     Default,
+    /// A review copy.
     Draft,
+    /// A low-resolution stand-in.
     LowResolution,
+    /// A proof copy.
     Proof,
+    /// A copy at screen resolution.
     Screen,
+    /// A thumbnail.
     Thumbnail {
+        /// The format of the thumbnail.
         format: Option<String>,
+        /// The size of the thumbnail.
         size: Option<(u32, u32)>,
+        /// The color space of the thumbnail.
         color_space: Option<String>,
     },
+    /// A custom rendition class.
     Custom(String),
 }
 
@@ -544,11 +594,7 @@ impl XmpType for RenditionClass {
             Self::LowResolution => write!(buf, "low-res"),
             Self::Proof => write!(buf, "proof"),
             Self::Screen => write!(buf, "screen"),
-            Self::Thumbnail {
-                format,
-                size,
-                color_space,
-            } => {
+            Self::Thumbnail { format, size, color_space } => {
                 write!(buf, "thumbnail")?;
                 if let Some(format) = format {
                     write!(buf, ":{}", format)?;
@@ -566,48 +612,61 @@ impl XmpType for RenditionClass {
     }
 }
 
-pub enum XmpRating {
+/// A user-assigned rating.
+pub enum Rating {
+    /// The resource has been rejected.
     Rejected,
+    /// The resource has not been rated.
     Unknown,
+    /// The resource has been rated 1 star.
     OneStar,
+    /// The resource has been rated 2 stars.
     TwoStars,
+    /// The resource has been rated 3 stars.
     ThreeStars,
+    /// The resource has been rated 4 stars.
     FourStars,
+    /// The resource has been rated 5 stars.
     FiveStars,
 }
 
-impl XmpRating {
+impl Rating {
+    /// Creates a new `Rating` from the number of stars.
     pub fn from_stars(stars: Option<u32>) -> Self {
         match stars {
-            Some(0) => XmpRating::Unknown,
-            Some(1) => XmpRating::OneStar,
-            Some(2) => XmpRating::TwoStars,
-            Some(3) => XmpRating::ThreeStars,
-            Some(4) => XmpRating::FourStars,
-            Some(5) => XmpRating::FiveStars,
+            Some(0) => Self::Unknown,
+            Some(1) => Self::OneStar,
+            Some(2) => Self::TwoStars,
+            Some(3) => Self::ThreeStars,
+            Some(4) => Self::FourStars,
+            Some(5) => Self::FiveStars,
             Some(stars) => panic!(
                 "Invalid number of stars: {} (must be between 0 and 5)",
                 stars
             ),
-            None => XmpRating::Unknown,
+            None => Self::Unknown,
         }
     }
 
+    /// Convert the rating to an XMP primitive.
     pub fn to_xmp(self) -> f32 {
         match self {
-            XmpRating::Rejected => -1.0,
-            XmpRating::Unknown => 0.0,
-            XmpRating::OneStar => 1.0,
-            XmpRating::TwoStars => 2.0,
-            XmpRating::ThreeStars => 3.0,
-            XmpRating::FourStars => 4.0,
-            XmpRating::FiveStars => 5.0,
+            Self::Rejected => -1.0,
+            Self::Unknown => 0.0,
+            Self::OneStar => 1.0,
+            Self::TwoStars => 2.0,
+            Self::ThreeStars => 3.0,
+            Self::FourStars => 4.0,
+            Self::FiveStars => 5.0,
         }
     }
 }
 
+/// Whether to ignore the markers of an [ingredient.](crate::ResourceRefWriter)
 pub enum MaskMarkers {
+    /// Ignore all markers and those of the children.
     All,
+    /// Process all markers.
     None,
 }
 
@@ -620,6 +679,8 @@ impl XmpType for MaskMarkers {
     }
 }
 
+/// The type of a resource event.
+#[allow(missing_docs)]
 pub enum ResourceEventAction {
     Converted,
     Copied,
@@ -660,6 +721,8 @@ impl XmpType for ResourceEventAction {
     }
 }
 
+/// The color space in which a colorant is defined.
+#[allow(missing_docs)]
 pub enum ColorantMode {
     CMYK,
     RGB,
@@ -677,8 +740,11 @@ impl XmpType for ColorantMode {
     }
 }
 
+/// The type of a colorant.
 pub enum ColorantType {
+    /// Colors inherent to the printing process.
     Process,
+    /// Special colors.
     Spot,
 }
 
@@ -692,6 +758,8 @@ impl XmpType for ColorantType {
     }
 }
 
+/// The unit of a physical dimension.
+#[allow(missing_docs)]
 pub enum DimensionUnit<'a> {
     Inch,
     Mm,
@@ -714,6 +782,8 @@ impl<'a> XmpType for DimensionUnit<'a> {
     }
 }
 
+/// The font file type.
+#[allow(missing_docs)]
 pub enum FontType<'a> {
     TrueType,
     OpenType,

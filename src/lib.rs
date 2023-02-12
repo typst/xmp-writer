@@ -3,7 +3,11 @@ pub mod types;
 use std::collections::BTreeSet;
 use std::io::Write;
 
-use types::{LangId, RenditionClass, XmpDate, XmpElement, XmpNamespace, XmpStruct, XmpValue};
+use quick_xml::name;
+use types::{
+    LangId, MaskMarkers, RenditionClass, ResourceEventAction, XmpDate, XmpElement, XmpNamespace,
+    XmpStruct, XmpValue,
+};
 
 pub struct XmpWriter {
     pub(crate) buf: Vec<u8>,
@@ -85,7 +89,7 @@ impl XmpWriter {
         self.add_element(XmpElement::new(
             XmpNamespace::DublinCore,
             "coverage",
-            XmpValue::String(coverage.into()),
+            XmpValue::String(coverage),
         ))
     }
 
@@ -120,7 +124,7 @@ impl XmpWriter {
         self.add_element(XmpElement::new(
             XmpNamespace::DublinCore,
             "format",
-            XmpValue::String(mime.into()),
+            XmpValue::String(mime),
         ))
     }
 
@@ -128,7 +132,7 @@ impl XmpWriter {
         self.add_element(XmpElement::new(
             XmpNamespace::DublinCore,
             "identifier",
-            XmpValue::String(id.into()),
+            XmpValue::String(id),
         ))
     }
 
@@ -152,7 +156,7 @@ impl XmpWriter {
         self.add_element(XmpElement::new(
             XmpNamespace::DublinCore,
             "relation",
-            XmpValue::String(relation.into()),
+            XmpValue::String(relation),
         ))
     }
 
@@ -171,7 +175,7 @@ impl XmpWriter {
         self.add_element(XmpElement::new(
             XmpNamespace::DublinCore,
             "source",
-            XmpValue::String(source.into()),
+            XmpValue::String(source),
         ))
     }
 
@@ -278,7 +282,7 @@ impl XmpWriter {
     }
 
     pub fn thumbnail(&mut self) -> ThumbnailWriter<'_> {
-        ThumbnailWriter::start(self)
+        ThumbnailWriter::start(self, XmpNamespace::Xmp)
     }
 }
 
@@ -287,9 +291,10 @@ pub struct ThumbnailWriter<'a> {
 }
 
 impl<'a, 'b: 'a> ThumbnailWriter<'a> {
-    pub fn start(writer: &'a mut XmpWriter) -> Self {
+    pub fn start(writer: &'a mut XmpWriter, namespace: XmpNamespace) -> Self {
+        writer.namespaces.insert(namespace.clone());
         Self {
-            stc: XmpStruct::new(writer, "Thumbnail", XmpNamespace::XmpImage).unwrap(),
+            stc: XmpStruct::new(writer, "Thumbnail", namespace).unwrap(),
         }
     }
 
@@ -297,7 +302,7 @@ impl<'a, 'b: 'a> ThumbnailWriter<'a> {
         self.stc.add_element(XmpElement::new(
             XmpNamespace::XmpImage,
             "format",
-            XmpValue::String(format.into()),
+            XmpValue::String(format),
         ));
         self
     }
@@ -328,23 +333,168 @@ impl<'a, 'b: 'a> ThumbnailWriter<'a> {
         self.stc.add_element(XmpElement::new(
             XmpNamespace::XmpImage,
             "image",
-            XmpValue::String(image.into()),
+            XmpValue::String(image),
         ));
         self
     }
 }
 
 /// XMP Rights Management Schema
-impl XmpWriter {}
+impl XmpWriter {
+    pub fn certificate(&mut self, cert: &str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpRights,
+            "Certificate",
+            XmpValue::String(cert),
+        ))
+    }
+
+    pub fn marked(&mut self, marked: bool) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpRights,
+            "Marked",
+            XmpValue::Boolean(marked),
+        ))
+    }
+
+    pub fn owner<'a>(&mut self, owner: impl IntoIterator<Item = &'a str>) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpRights,
+            "Owner",
+            XmpValue::unordered_array(owner.into_iter().map(XmpValue::from_str)),
+        ))
+    }
+
+    pub fn usage_terms<'a>(
+        &mut self,
+        terms: impl IntoIterator<Item = (Option<LangId<'a>>, &'a str)>,
+    ) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpRights,
+            "UsageTerms",
+            XmpValue::language_alternative(terms),
+        ))
+    }
+
+    pub fn web_statement(&mut self, statement: &str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpRights,
+            "WebStatement",
+            XmpValue::String(statement),
+        ))
+    }
+}
+
+/// XMP Media Management Schema
+impl XmpWriter {
+    pub fn derived_from(&mut self) -> ResourceRefWriter<'_> {
+        ResourceRefWriter::start(self, "DerivedFrom", XmpNamespace::XmpMedia)
+    }
+
+    pub fn document_id(&mut self, id: &str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "DocumentID",
+            XmpValue::String(id),
+        ))
+    }
+
+    pub fn history<'a>(&mut self) -> ResourceEventsWriter<'_> {
+        ResourceEventsWriter::start(self, "History", XmpNamespace::XmpMedia)
+    }
+
+    // TODO: Ingredients
+
+    pub fn instance_id(&mut self, id: &str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "InstanceID",
+            XmpValue::String(id),
+        ))
+    }
+
+    pub fn managed_from(&mut self) -> ResourceRefWriter<'_> {
+        ResourceRefWriter::start(self, "ManagedFrom", XmpNamespace::XmpMedia)
+    }
+
+    pub fn manager<'a>(&mut self, manager: &'a str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "Manager",
+            XmpValue::String(manager),
+        ))
+    }
+
+    pub fn manage_to<'a>(&mut self, uri: &'a str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "ManageTo",
+            XmpValue::String(uri),
+        ))
+    }
+
+    pub fn manage_ui<'a>(&mut self, uri: &'a str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "ManageUI",
+            XmpValue::String(uri),
+        ))
+    }
+
+    pub fn manager_variant(&mut self, variant: &str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "ManagerVariant",
+            XmpValue::String(variant),
+        ))
+    }
+
+    pub fn original_doc_id(&mut self, id: &str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "OriginalDocumentID",
+            XmpValue::String(id),
+        ))
+    }
+
+    // TODO: Pantry
+
+    pub fn rendition_class(&mut self, class: RenditionClass) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "RenditionClass",
+            XmpValue::DynValue(Box::new(class)),
+        ))
+    }
+
+    pub fn rendition_params(&mut self, params: &str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "RenditionParams",
+            XmpValue::String(params),
+        ))
+    }
+
+    pub fn version_id(&mut self, id: &str) -> &mut Self {
+        self.add_element(XmpElement::new(
+            XmpNamespace::XmpMedia,
+            "VersionID",
+            XmpValue::String(id),
+        ))
+    }
+
+    // TODO: Versions
+}
 
 pub struct ResourceRefWriter<'a> {
     stc: XmpStruct<'a>,
 }
 
 impl<'a, 'b: 'a> ResourceRefWriter<'a> {
-    pub fn start(writer: &'a mut XmpWriter, name: &'a str) -> Self {
+    pub fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: XmpNamespace) -> Self {
+        writer.namespaces.insert(namespace.clone());
         Self {
-            stc: XmpStruct::new(writer, name, XmpNamespace::XmpResourceRef).unwrap(),
+            stc: XmpStruct::new(writer, name, namespace).unwrap(),
         }
     }
 
@@ -361,7 +511,7 @@ impl<'a, 'b: 'a> ResourceRefWriter<'a> {
         self.stc.add_element(XmpElement::new(
             XmpNamespace::XmpResourceRef,
             "documentID",
-            XmpValue::String(id.into()),
+            XmpValue::String(id),
         ));
         self
     }
@@ -370,7 +520,7 @@ impl<'a, 'b: 'a> ResourceRefWriter<'a> {
         self.stc.add_element(XmpElement::new(
             XmpNamespace::XmpResourceRef,
             "filePath",
-            XmpValue::String(path.into()),
+            XmpValue::String(path),
         ));
         self
     }
@@ -379,7 +529,70 @@ impl<'a, 'b: 'a> ResourceRefWriter<'a> {
         self.stc.add_element(XmpElement::new(
             XmpNamespace::XmpResourceRef,
             "instanceID",
-            XmpValue::String(id.into()),
+            XmpValue::String(id),
+        ));
+        self
+    }
+
+    pub fn last_modify_date(&mut self, date: XmpDate) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "lastModifyDate",
+            XmpValue::Date(date),
+        ));
+        self
+    }
+
+    pub fn manager(&mut self, manager: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "manager",
+            XmpValue::String(manager),
+        ));
+        self
+    }
+
+    pub fn manager_variant(&mut self, variant: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "managerVariant",
+            XmpValue::String(variant),
+        ));
+        self
+    }
+
+    pub fn manage_to(&mut self, uri: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "manageTo",
+            XmpValue::String(uri),
+        ));
+        self
+    }
+
+    pub fn manage_ui(&mut self, uri: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "manageTo",
+            XmpValue::String(uri),
+        ));
+        self
+    }
+
+    pub fn mask_markers(&mut self, markers: MaskMarkers) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "maskMarkers",
+            XmpValue::DynValue(Box::new(markers)),
+        ));
+        self
+    }
+
+    pub fn part_mapping(&mut self, mapping: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "partMapping",
+            XmpValue::String(mapping),
         ));
         self
     }
@@ -397,8 +610,125 @@ impl<'a, 'b: 'a> ResourceRefWriter<'a> {
         self.stc.add_element(XmpElement::new(
             XmpNamespace::XmpResourceRef,
             "renditionParams",
-            XmpValue::String(params.into()),
+            XmpValue::String(params),
         ));
         self
+    }
+
+    pub fn to_part(&mut self, part: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "toPart",
+            XmpValue::String(part),
+        ));
+        self
+    }
+
+    pub fn version_id(&mut self, id: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceRef,
+            "versionID",
+            XmpValue::String(id),
+        ));
+        self
+    }
+}
+
+pub struct ResourceEventWriter<'a> {
+    stc: XmpStruct<'a>,
+}
+
+impl<'a, 'b: 'a> ResourceEventWriter<'a> {
+    pub fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: XmpNamespace) -> Self {
+        writer.namespaces.insert(namespace.clone());
+        Self {
+            stc: XmpStruct::new(writer, name, namespace).unwrap(),
+        }
+    }
+
+    pub fn action(&mut self, action: ResourceEventAction) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceEvent,
+            "action",
+            XmpValue::DynValue(Box::new(action)),
+        ));
+        self
+    }
+
+    pub fn instance_id(&mut self, id: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceEvent,
+            "instanceID",
+            XmpValue::String(id),
+        ));
+        self
+    }
+
+    pub fn parameters(&mut self, params: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceEvent,
+            "parameters",
+            XmpValue::String(params),
+        ));
+        self
+    }
+
+    pub fn software_agent(&mut self, agent: &'b str) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceEvent,
+            "softwareAgent",
+            XmpValue::String(agent),
+        ));
+        self
+    }
+
+    pub fn when(&mut self, date: XmpDate) -> &mut Self {
+        self.stc.add_element(XmpElement::new(
+            XmpNamespace::XmpResourceEvent,
+            "when",
+            XmpValue::Date(date),
+        ));
+        self
+    }
+}
+
+pub struct ResourceEventsWriter<'a> {
+    writer: &'a mut XmpWriter,
+    name: &'a str,
+    namespace: XmpNamespace,
+}
+
+impl<'a, 'b: 'a> ResourceEventsWriter<'a> {
+    pub fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: XmpNamespace) -> Self {
+        write!(
+            &mut writer.buf,
+            "<{}:{}><rdf:Seq>",
+            namespace.namespace(),
+            name
+        )
+        .unwrap();
+        writer.namespaces.insert(namespace.clone());
+        writer.namespaces.insert(XmpNamespace::Rdf);
+        Self {
+            writer,
+            name,
+            namespace,
+        }
+    }
+
+    pub fn add_event(&mut self) -> ResourceEventWriter<'_> {
+        ResourceEventWriter::start(self.writer, "li", XmpNamespace::Rdf)
+    }
+}
+
+impl Drop for ResourceEventsWriter<'_> {
+    fn drop(&mut self) {
+        write!(
+            &mut self.writer.buf,
+            "</rdf:Seq></{}:{}>",
+            self.namespace.namespace(),
+            self.name
+        )
+        .unwrap();
     }
 }

@@ -12,6 +12,7 @@ pub enum XmpNamespace {
     Xmp,
     XmpRights,
     XmpResourceRef,
+    XmpResourceEvent,
     XmpMedia,
     XmpJob,
     XmpPaged,
@@ -29,6 +30,7 @@ impl XmpNamespace {
             Self::Xmp => "http://ns.adobe.com/xap/1.0/",
             Self::XmpRights => "http://ns.adobe.com/xap/1.0/rights/",
             Self::XmpResourceRef => "http://ns.adobe.com/xap/1.0/sType/ResourceRef#",
+            Self::XmpResourceEvent => "http://ns.adobe.com/xap/1.0/sType/ResourceEvent#",
             Self::XmpMedia => "http://ns.adobe.com/xap/1.0/mm/",
             Self::XmpJob => "http://ns.adobe.com/xap/1.0/bj/",
             Self::XmpPaged => "http://ns.adobe.com/xap/1.0/t/pg/",
@@ -46,6 +48,7 @@ impl XmpNamespace {
             Self::Xmp => "xmp",
             Self::XmpRights => "xmpRights",
             Self::XmpResourceRef => "stRef",
+            Self::XmpResourceEvent => "stEvt",
             Self::XmpMedia => "xmpMM",
             Self::XmpJob => "xmpBJ",
             Self::XmpPaged => "xmpTPg",
@@ -500,6 +503,60 @@ impl From<XmpRating> for XmpValue<'static> {
             XmpRating::ThreeStars => XmpValue::Real(3.0),
             XmpRating::FourStars => XmpValue::Real(4.0),
             XmpRating::FiveStars => XmpValue::Real(5.0),
+        }
+    }
+}
+
+pub enum MaskMarkers {
+    All,
+    None,
+}
+
+impl XmpType for MaskMarkers {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        match self {
+            Self::All => write!(buf, "All"),
+            Self::None => write!(buf, "None"),
+        }
+    }
+}
+
+pub enum ResourceEventAction {
+    Converted,
+    Copied,
+    Created,
+    Cropped,
+    Edited,
+    Filtered,
+    Formatted,
+    VersionUpdated,
+    Printed,
+    Published,
+    Managed,
+    Produced,
+    Resized,
+    Saved,
+    Custom(String),
+}
+
+impl XmpType for ResourceEventAction {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        match self {
+            Self::Converted => write!(buf, "converted"),
+            Self::Copied => write!(buf, "copied"),
+            Self::Created => write!(buf, "created"),
+            Self::Cropped => write!(buf, "cropped"),
+            Self::Edited => write!(buf, "edited"),
+            Self::Filtered => write!(buf, "filtered"),
+            Self::Formatted => write!(buf, "formatted"),
+            Self::VersionUpdated => write!(buf, "version_updated"),
+            Self::Printed => write!(buf, "printed"),
+            Self::Published => write!(buf, "published"),
+            Self::Managed => write!(buf, "managed"),
+            Self::Produced => write!(buf, "produced"),
+            Self::Resized => write!(buf, "resized"),
+            Self::Saved => write!(buf, "saved"),
+            Self::Custom(s) => write!(buf, "{}", s),
         }
     }
 }

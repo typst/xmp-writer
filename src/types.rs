@@ -1,6 +1,7 @@
 use std::{
     fmt::Debug,
     io::{Error, Write},
+    iter,
 };
 
 use crate::XmpWriter;
@@ -41,7 +42,7 @@ impl XmpNamespace {
         }
     }
 
-    pub fn namespace(&self) -> &str {
+    pub fn prefix(&self) -> &str {
         match self {
             Self::Rdf => "rdf",
             Self::DublinCore => "dc",
@@ -61,102 +62,172 @@ impl XmpNamespace {
 }
 
 pub struct XmpElement<'a> {
-    namespace: XmpNamespace,
+    writer: &'a mut XmpWriter,
     name: &'a str,
-    value: XmpValue<'a>,
-    attrs: Vec<(&'a str, &'a str)>,
+    namespace: XmpNamespace,
 }
 
 impl<'a> XmpElement<'a> {
-    pub fn new(namespace: XmpNamespace, name: &'a str, value: XmpValue<'a>) -> XmpElement<'a> {
-        XmpElement {
-            namespace,
-            name,
-            value,
-            attrs: Vec::new(),
-        }
+    pub fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: XmpNamespace) -> Self {
+        Self::with_attrs(writer, name, namespace, iter::empty())
     }
 
-    pub fn with_attrs(
-        namespace: XmpNamespace,
+    pub fn with_attrs<'b>(
+        writer: &'a mut XmpWriter,
         name: &'a str,
-        value: XmpValue<'a>,
-        attrs: Vec<(&'a str, &'a str)>,
-    ) -> XmpElement<'a> {
+        namespace: XmpNamespace,
+        attrs: impl IntoIterator<Item = (&'b str, &'b str)>,
+    ) -> Self {
+        write!(writer.buf, "<{}:{}", namespace.prefix(), name).unwrap();
+
+        for (key, value) in attrs {
+            write!(writer.buf, " {}=\"{}\"", key, value).unwrap();
+        }
+
+        writer.namespaces.insert(namespace.clone());
         XmpElement {
-            namespace,
+            writer,
             name,
-            value,
-            attrs,
+            namespace,
         }
     }
 
-    pub(crate) fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        write!(buf, "<{}:{}", self.namespace.namespace(), self.name)?;
-
-        for (key, value) in self.attrs.iter() {
-            write!(buf, " {}=\"{}\"", key, value)?;
-        }
-
-        if let XmpValue::Struct(_) = self.value {
-            write!(buf, " rdf:parseType=\"Resource\">")?;
-        } else {
-            write!(buf, ">")?;
-        }
-
-        self.value.write(buf)?;
-
-        write!(buf, "</{}:{}>", self.namespace.namespace(), self.name)?;
-
-        Ok(())
+    pub fn value(self, val: impl XmpType) {
+        write!(self.writer.buf, ">").unwrap();
+        val.write(&mut self.writer.buf).unwrap();
+        self.close();
     }
 
-    pub(crate) fn namespaces(&self, f: &mut impl FnMut(XmpNamespace)) {
-        f(self.namespace.clone());
-        self.value.namespaces(f);
+    pub fn obj(self) -> XmpStruct<'a> {
+        write!(self.writer.buf, " rdf:parseType=\"Resource\">").unwrap();
+        XmpStruct::start(self.writer, self.name, self.namespace)
+    }
+
+    pub fn array(self, kind: RdfCollectionType) -> ArrayWriter<'a> {
+        write!(self.writer.buf, ">").unwrap();
+        ArrayWriter::start(self.writer, kind, self.name, self.namespace)
+    }
+
+    fn close(self) {
+        write!(
+            self.writer.buf,
+            "</{}:{}>",
+            self.namespace.prefix(),
+            self.name
+        )
+        .unwrap();
+    }
+
+    pub fn language_alternative<'b>(
+        self,
+        items: impl IntoIterator<Item = (Option<LangId<'b>>, &'b str)>,
+    ) {
+        let mut array = self.array(RdfCollectionType::Alt);
+        for (lang, value) in items {
+            array
+                .element_with_attrs(iter::once(("xml:lang", lang.unwrap_or_default().0)))
+                .value(value);
+        }
+        drop(array);
+    }
+
+    pub fn unordered_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
+        let mut array = self.array(RdfCollectionType::Bag);
+        for item in items {
+            array.element().value(item);
+        }
+    }
+
+    pub fn ordered_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
+        let mut array = self.array(RdfCollectionType::Seq);
+        for item in items {
+            array.element().value(item);
+        }
+    }
+
+    pub fn alternative_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
+        let mut array = self.array(RdfCollectionType::Alt);
+        for item in items {
+            array.element().value(item);
+        }
     }
 }
 
-pub enum XmpValue<'a> {
-    Boolean(bool),
-    Date(XmpDate),
-    String(&'a str),
-    Integer(i64),
-    Real(f64),
-    Array(RdfCollection<'a>),
-    Struct(XmpStruct<'a>),
-    DynValue(Box<dyn XmpType>),
+pub struct ArrayWriter<'a> {
+    writer: &'a mut XmpWriter,
+    kind: RdfCollectionType,
+    name: &'a str,
+    namespace: XmpNamespace,
+}
+
+impl<'a> ArrayWriter<'a> {
+    pub fn start(
+        writer: &'a mut XmpWriter,
+        kind: RdfCollectionType,
+        name: &'a str,
+        namespace: XmpNamespace,
+    ) -> Self {
+        writer.namespaces.insert(XmpNamespace::Rdf);
+        write!(writer.buf, "<rdf:{}>", kind.rdf_type()).unwrap();
+        Self {
+            writer,
+            kind,
+            name,
+            namespace,
+        }
+    }
+
+    pub fn element(&mut self) -> XmpElement<'_> {
+        self.element_with_attrs(iter::empty())
+    }
+
+    pub fn element_with_attrs(
+        &mut self,
+        attrs: impl IntoIterator<Item = (&'a str, &'a str)>,
+    ) -> XmpElement<'_> {
+        XmpElement::with_attrs(self.writer, "li", XmpNamespace::Rdf, attrs)
+    }
+}
+
+impl Drop for ArrayWriter<'_> {
+    fn drop(&mut self) {
+        write!(
+            self.writer.buf,
+            "</rdf:{}></{}:{}>",
+            self.kind.rdf_type(),
+            self.namespace.prefix(),
+            self.name
+        )
+        .unwrap();
+    }
 }
 
 pub struct XmpStruct<'a> {
     writer: &'a mut XmpWriter,
-    namespace: XmpNamespace,
     name: &'a str,
+    namespace: XmpNamespace,
 }
 
 impl<'a> XmpStruct<'a> {
-    pub fn new(
-        writer: &'a mut XmpWriter,
-        name: &'a str,
-        namespace: XmpNamespace,
-    ) -> Result<XmpStruct<'a>, Error> {
-        write!(
-            writer.buf,
-            "<{}:{} rdf:parseType=\"Resource\">",
-            namespace.namespace(),
-            name,
-        )?;
-        writer.add_namespace(namespace.clone());
-
-        Ok(Self {
+    pub fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: XmpNamespace) -> Self {
+        Self {
             writer,
-            namespace,
             name,
-        })
+            namespace,
+        }
     }
 
-    pub fn add_element(&mut self, element: XmpElement<'a>) {
-        self.writer.add_element(element);
+    pub fn element(&mut self, name: &'a str, namespace: XmpNamespace) -> XmpElement<'_> {
+        self.element_with_attrs(name, namespace, iter::empty())
+    }
+
+    pub fn element_with_attrs(
+        &mut self,
+        name: &'a str,
+        namespace: XmpNamespace,
+        attrs: impl IntoIterator<Item = (&'a str, &'a str)>,
+    ) -> XmpElement<'_> {
+        XmpElement::with_attrs(self.writer, name, namespace, attrs)
     }
 }
 
@@ -165,7 +236,7 @@ impl Drop for XmpStruct<'_> {
         write!(
             self.writer.buf,
             "</{}:{}>",
-            self.namespace.namespace(),
+            self.namespace.prefix(),
             self.name
         )
         .unwrap();
@@ -176,120 +247,70 @@ pub trait XmpType {
     fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error>;
 }
 
-impl<'a> XmpValue<'a> {
-    pub fn from_str(value: &'a str) -> XmpValue<'a> {
-        XmpValue::String(value)
-    }
-
-    pub fn language_alternative(
-        iter: impl IntoIterator<Item = (Option<LangId<'a>>, &'a str)>,
-    ) -> XmpValue<'a> {
-        XmpValue::Array(RdfCollection::Alt(
-            iter.into_iter()
-                .map(|(lang, value)| {
-                    XmpElement::with_attrs(
-                        XmpNamespace::Rdf,
-                        "li",
-                        XmpValue::String(value),
-                        vec![("xml:lang", lang.map(|l| l.0).unwrap_or_else(|| "x-default"))],
-                    )
-                })
-                .collect(),
-        ))
-    }
-
-    pub fn unordered_array<'b>(iter: impl IntoIterator<Item = XmpValue<'a>>) -> Self {
-        XmpValue::Array(RdfCollection::Bag(
-            iter.into_iter()
-                .map(|value| XmpElement::new(XmpNamespace::Rdf, "li", value))
-                .collect(),
-        ))
-    }
-
-    pub fn ordered_array<'b>(iter: impl IntoIterator<Item = XmpValue<'a>>) -> Self {
-        XmpValue::Array(RdfCollection::Seq(
-            iter.into_iter()
-                .map(|value| XmpElement::new(XmpNamespace::Rdf, "li", value))
-                .collect(),
-        ))
-    }
-
-    pub fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        match self {
-            XmpValue::Boolean(b) => write!(buf, "{}", if *b { "True" } else { "False" }),
-            XmpValue::Date(d) => d.write(buf),
-            XmpValue::String(s) => write!(buf, "{}", {
-                let mut res = String::new();
-                for c in s.chars() {
-                    match c {
-                        '<' => res.push_str("&lt;"),
-                        '>' => res.push_str("&gt;"),
-                        '&' => res.push_str("&amp;"),
-                        '\'' => res.push_str("&apos;"),
-                        '"' => res.push_str("&quot;"),
-                        _ => res.push(c),
-                    }
-                }
-                res
-            }),
-            XmpValue::Integer(i) => write!(buf, "{}", i),
-            XmpValue::Real(r) => write!(buf, "{}", r),
-            XmpValue::Array(a) => a.write(buf),
-            XmpValue::Struct(_) => Ok(()),
-            XmpValue::DynValue(d) => d.write(buf),
-        }
-    }
-
-    pub(crate) fn namespaces(&self, f: &mut impl FnMut(XmpNamespace)) {
-        match self {
-            XmpValue::Boolean(_) => (),
-            XmpValue::Date(_) => (),
-            XmpValue::String(_) => (),
-            XmpValue::Integer(_) => (),
-            XmpValue::Real(_) => (),
-            XmpValue::Array(a) => a.namespaces(f),
-            XmpValue::Struct(_) => (),
-            XmpValue::DynValue(_) => (),
-        }
-    }
-}
-
-pub enum RdfCollection<'a> {
-    Seq(Vec<XmpElement<'a>>),
-    Bag(Vec<XmpElement<'a>>),
-    Alt(Vec<XmpElement<'a>>),
-}
-
-impl<'a> RdfCollection<'a> {
-    fn rdf_type(&self) -> &'static str {
-        match self {
-            RdfCollection::Seq(_) => "Seq",
-            RdfCollection::Bag(_) => "Bag",
-            RdfCollection::Alt(_) => "Alt",
-        }
-    }
-
-    fn iter(&self) -> impl Iterator<Item = &XmpElement> {
-        match self {
-            RdfCollection::Seq(v) => v.iter(),
-            RdfCollection::Bag(v) => v.iter(),
-            RdfCollection::Alt(v) => v.iter(),
-        }
-    }
-
+impl XmpType for bool {
     fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        let kind = self.rdf_type();
-        write!(buf, "<rdf:{}>", kind)?;
-        for elem in self.iter() {
-            elem.write(buf)?;
+        if *self {
+            buf.extend_from_slice(b"True");
+        } else {
+            buf.extend_from_slice(b"False");
         }
-        write!(buf, "</rdf:{}>", kind)?;
         Ok(())
     }
+}
 
-    fn namespaces(&self, f: &mut impl FnMut(XmpNamespace)) {
-        for elem in self.iter() {
-            elem.namespaces(f);
+impl XmpType for i32 {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        write!(buf, "{}", self)
+    }
+}
+
+impl XmpType for i64 {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        write!(buf, "{}", self)
+    }
+}
+
+impl XmpType for f32 {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        write!(buf, "{}", self)
+    }
+}
+
+impl XmpType for f64 {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        write!(buf, "{}", self)
+    }
+}
+
+impl XmpType for &str {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        let mut res = String::new();
+        for c in self.chars() {
+            match c {
+                '<' => res.push_str("&lt;"),
+                '>' => res.push_str("&gt;"),
+                '&' => res.push_str("&amp;"),
+                '\'' => res.push_str("&apos;"),
+                '"' => res.push_str("&quot;"),
+                _ => res.push(c),
+            }
+        }
+        write!(buf, "{}", res)
+    }
+}
+
+pub enum RdfCollectionType {
+    Seq,
+    Bag,
+    Alt,
+}
+
+impl RdfCollectionType {
+    fn rdf_type(&self) -> &'static str {
+        match self {
+            RdfCollectionType::Seq => "Seq",
+            RdfCollectionType::Bag => "Bag",
+            RdfCollectionType::Alt => "Alt",
         }
     }
 }
@@ -297,9 +318,15 @@ impl<'a> RdfCollection<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LangId<'a>(&'a str);
 
-impl<'a> From<LangId<'a>> for XmpValue<'a> {
-    fn from(value: LangId<'a>) -> Self {
-        XmpValue::String(value.0)
+impl XmpType for LangId<'_> {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        write!(buf, "{}", self.0)
+    }
+}
+
+impl Default for LangId<'_> {
+    fn default() -> Self {
+        Self("x-default")
     }
 }
 
@@ -315,8 +342,8 @@ pub struct XmpDate {
     tz_minute: Option<i8>,
 }
 
-impl XmpDate {
-    pub(crate) fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+impl XmpType for XmpDate {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
         match self {
             XmpDate {
                 year,
@@ -491,18 +518,16 @@ impl XmpRating {
             None => XmpRating::Unknown,
         }
     }
-}
 
-impl From<XmpRating> for XmpValue<'static> {
-    fn from(rating: XmpRating) -> Self {
-        match rating {
-            XmpRating::Rejected => XmpValue::Real(-1.0),
-            XmpRating::Unknown => XmpValue::Real(0.0),
-            XmpRating::OneStar => XmpValue::Real(1.0),
-            XmpRating::TwoStars => XmpValue::Real(2.0),
-            XmpRating::ThreeStars => XmpValue::Real(3.0),
-            XmpRating::FourStars => XmpValue::Real(4.0),
-            XmpRating::FiveStars => XmpValue::Real(5.0),
+    pub fn to_xmp(self) -> f32 {
+        match self {
+            XmpRating::Rejected => -1.0,
+            XmpRating::Unknown => 0.0,
+            XmpRating::OneStar => 1.0,
+            XmpRating::TwoStars => 2.0,
+            XmpRating::ThreeStars => 3.0,
+            XmpRating::FourStars => 4.0,
+            XmpRating::FiveStars => 5.0,
         }
     }
 }

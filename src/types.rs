@@ -14,12 +14,20 @@ pub enum XmpNamespace {
     XmpRights,
     XmpResourceRef,
     XmpResourceEvent,
-    XmpMedia,
+    XmpVersion,
     XmpJob,
+    XmpJobManagement,
+    XmpColorant,
+    XmpFont,
+    XmpDimensions,
+    XmpMedia,
     XmpPaged,
     XmpDynamicMedia,
     XmpImage,
+    XmpIdq,
     AdobePdf,
+    PdfAId,
+    PdfXId,
     Custom((String, String)),
 }
 
@@ -32,12 +40,20 @@ impl XmpNamespace {
             Self::XmpRights => "http://ns.adobe.com/xap/1.0/rights/",
             Self::XmpResourceRef => "http://ns.adobe.com/xap/1.0/sType/ResourceRef#",
             Self::XmpResourceEvent => "http://ns.adobe.com/xap/1.0/sType/ResourceEvent#",
+            Self::XmpVersion => "http://ns.adobe.com/xap/1.0/sType/Version#",
+            Self::XmpJob => "http://ns.adobe.com/xap/1.0/sType/Job#",
+            Self::XmpColorant => "http://ns.adobe.com/xap/1.0/g/",
+            Self::XmpFont => "http://ns.adobe.com/xap/1.0/sType/Font#",
+            Self::XmpDimensions => "http://ns.adobe.com/xap/1.0/sType/Dimensions#",
             Self::XmpMedia => "http://ns.adobe.com/xap/1.0/mm/",
-            Self::XmpJob => "http://ns.adobe.com/xap/1.0/bj/",
+            Self::XmpJobManagement => "http://ns.adobe.com/xap/1.0/bj/",
             Self::XmpPaged => "http://ns.adobe.com/xap/1.0/t/pg/",
             Self::XmpDynamicMedia => "http://ns.adobe.com/xap/1.0/DynamicMedia/",
             Self::XmpImage => "http://ns.adobe.com/xap/1.0/g/img/",
             Self::AdobePdf => "http://ns.adobe.com/pdf/1.3/",
+            Self::XmpIdq => "http://ns.adobe.com/xmp/Identifier/qual/1.0/",
+            Self::PdfAId => "http://www.aiim.org/pdfa/ns/id/",
+            Self::PdfXId => "http://www.npes.org/pdfx/ns/id/",
             Self::Custom((_, url)) => url,
         }
     }
@@ -50,12 +66,20 @@ impl XmpNamespace {
             Self::XmpRights => "xmpRights",
             Self::XmpResourceRef => "stRef",
             Self::XmpResourceEvent => "stEvt",
+            Self::XmpVersion => "stVer",
+            Self::XmpJob => "stJob",
+            Self::XmpColorant => "xmpG",
+            Self::XmpFont => "stFnt",
+            Self::XmpDimensions => "stDim",
             Self::XmpMedia => "xmpMM",
-            Self::XmpJob => "xmpBJ",
+            Self::XmpJobManagement => "xmpBJ",
             Self::XmpPaged => "xmpTPg",
             Self::XmpDynamicMedia => "xmpDM",
             Self::XmpImage => "xmpGImg",
             Self::AdobePdf => "pdf",
+            Self::XmpIdq => "xmpidq",
+            Self::PdfAId => "pdfaid",
+            Self::PdfXId => "pdfxid",
             Self::Custom((namespace, _)) => namespace,
         }
     }
@@ -221,11 +245,11 @@ impl<'a> XmpStruct<'a> {
         self.element_with_attrs(name, namespace, iter::empty())
     }
 
-    pub fn element_with_attrs(
+    pub fn element_with_attrs<'b>(
         &mut self,
         name: &'a str,
         namespace: XmpNamespace,
-        attrs: impl IntoIterator<Item = (&'a str, &'a str)>,
+        attrs: impl IntoIterator<Item = (&'b str, &'b str)>,
     ) -> XmpElement<'_> {
         XmpElement::with_attrs(self.writer, name, namespace, attrs)
     }
@@ -316,7 +340,7 @@ impl RdfCollectionType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LangId<'a>(&'a str);
+pub struct LangId<'a>(pub &'a str);
 
 impl XmpType for LangId<'_> {
     fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
@@ -340,6 +364,56 @@ pub struct XmpDate {
     second: Option<u8>,
     tz_hour: Option<i8>,
     tz_minute: Option<i8>,
+}
+
+impl XmpDate {
+    pub fn date(year: u16, month: u8, day: u8) -> Self {
+        Self {
+            year,
+            month: Some(month),
+            day: Some(day),
+            hour: None,
+            minute: None,
+            second: None,
+            tz_hour: None,
+            tz_minute: None,
+        }
+    }
+
+    pub fn local_time(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Self {
+        Self {
+            year,
+            month: Some(month),
+            day: Some(day),
+            hour: Some(hour),
+            minute: Some(minute),
+            second: Some(second),
+            tz_hour: None,
+            tz_minute: None,
+        }
+    }
+
+    pub fn new(
+        year: u16,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+        tz_hour: i8,
+        tz_minute: i8,
+    ) -> Self {
+        Self {
+            year,
+            month: Some(month),
+            day: Some(day),
+            hour: Some(hour),
+            minute: Some(minute),
+            second: Some(second),
+            tz_hour: Some(tz_hour),
+            tz_minute: Some(tz_minute),
+        }
+    }
 }
 
 impl XmpType for XmpDate {
@@ -581,6 +655,80 @@ impl XmpType for ResourceEventAction {
             Self::Produced => write!(buf, "produced"),
             Self::Resized => write!(buf, "resized"),
             Self::Saved => write!(buf, "saved"),
+            Self::Custom(s) => write!(buf, "{}", s),
+        }
+    }
+}
+
+pub enum ColorantMode {
+    CMYK,
+    RGB,
+    Lab,
+}
+
+impl XmpType for ColorantMode {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        buf.extend_from_slice(match self {
+            Self::CMYK => b"CMYK",
+            Self::RGB => b"RGB",
+            Self::Lab => b"Lab",
+        });
+        Ok(())
+    }
+}
+
+pub enum ColorantType {
+    Process,
+    Spot,
+}
+
+impl XmpType for ColorantType {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        buf.extend_from_slice(match self {
+            Self::Process => b"PROCESS",
+            Self::Spot => b"SPOT",
+        });
+        Ok(())
+    }
+}
+
+pub enum DimensionUnit<'a> {
+    Inch,
+    Mm,
+    Pixel,
+    Pica,
+    Point,
+    Custom(&'a str),
+}
+
+impl<'a> XmpType for DimensionUnit<'a> {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        match self {
+            Self::Inch => write!(buf, "inch"),
+            Self::Mm => write!(buf, "mm"),
+            Self::Pixel => write!(buf, "pixel"),
+            Self::Pica => write!(buf, "pica"),
+            Self::Point => write!(buf, "point"),
+            Self::Custom(s) => write!(buf, "{}", s),
+        }
+    }
+}
+
+pub enum FontType<'a> {
+    TrueType,
+    OpenType,
+    Type1,
+    Bitmap,
+    Custom(&'a str),
+}
+
+impl<'a> XmpType for FontType<'a> {
+    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+        match self {
+            Self::TrueType => write!(buf, "TrueType"),
+            Self::OpenType => write!(buf, "OpenType"),
+            Self::Type1 => write!(buf, "Type1"),
+            Self::Bitmap => write!(buf, "Bitmap"),
             Self::Custom(s) => write!(buf, "{}", s),
         }
     }

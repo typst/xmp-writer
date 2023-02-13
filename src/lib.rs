@@ -31,7 +31,7 @@ drop(colors);
 
 writer.creator_tool("xmp-writer 0.1.0");
 
-println!("{}", std::str::from_utf8(&writer.finish(None)).unwrap());
+println!("{}", writer.finish(None));
 ```
 
 ## See also
@@ -45,7 +45,7 @@ println!("{}", std::str::from_utf8(&writer.finish(None)).unwrap());
 mod types;
 
 use std::collections::BTreeSet;
-use std::io::Write;
+use std::fmt::Write;
 
 pub use types::*;
 
@@ -75,14 +75,17 @@ macro_rules! deref {
 /// Use [`XmpWriter::new`] to create a new instance and get the resulting XMP
 /// metadata by calling [`XmpWriter::finish`].
 pub struct XmpWriter {
-    pub(crate) buf: Vec<u8>,
+    pub(crate) buf: String,
     namespaces: BTreeSet<Namespace>,
 }
 
 impl XmpWriter {
     /// Create a new XMP writer.
     pub fn new() -> XmpWriter {
-        Self { buf: vec![], namespaces: BTreeSet::new() }
+        Self {
+            buf: String::new(),
+            namespaces: BTreeSet::new(),
+        }
     }
 
     /// Add a custom element to the XMP metadata.
@@ -92,13 +95,10 @@ impl XmpWriter {
     }
 
     /// Finish the XMP metadata and return it as a byte vector.
-    pub fn finish(self, about: Option<&str>) -> Vec<u8> {
-        let mut buf = vec![];
-        write!(
-            &mut buf,
-            "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>"
-        )
-        .unwrap();
+    pub fn finish(self, about: Option<&str>) -> String {
+        let mut buf = String::with_capacity(280 + self.buf.len());
+        buf.push_str("<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>");
+
         write!(
             &mut buf,
             "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"xmp-writer\"><rdf:RDF xmlns:rdf=\"{}\"><rdf:Description rdf:about=\"{}\"",
@@ -117,18 +117,14 @@ impl XmpWriter {
             .unwrap();
         }
 
-        buf.extend_from_slice(b">");
-        buf.extend_from_slice(&self.buf);
-        write!(
-            &mut buf,
-            "</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end=\"r\"?>"
-        )
-        .unwrap();
+        buf.push('>');
+        buf.push_str(&self.buf);
+        buf.push_str("</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end=\"r\"?>");
         buf
     }
 }
 
-/// XMP Dublin Core Schema
+/// XMP Dublin Core Schema.
 impl XmpWriter {
     /// Write the `dc:contributor` property.
     ///
@@ -287,7 +283,7 @@ impl XmpWriter {
     }
 }
 
-/// XMP Basic Schema
+/// XMP Basic Schema.
 impl XmpWriter {
     /// Write the `xmp:BaseURL` property.
     ///
@@ -376,7 +372,7 @@ impl XmpWriter {
     }
 }
 
-/// XMP Rights Management Schema
+/// XMP Rights Management Schema.
 impl XmpWriter {
     /// Write the `xmpRights:Certificate` property.
     ///
@@ -424,7 +420,7 @@ impl XmpWriter {
     }
 }
 
-/// XMP Media Management Schema
+/// XMP Media Management Schema.
 impl XmpWriter {
     /// Start writing the `xmpMM:DerivedFrom` property.
     ///

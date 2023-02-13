@@ -1,6 +1,5 @@
 use std::{
-    fmt::Debug,
-    io::{Error, Write},
+    fmt::{Debug, Write},
     iter,
 };
 
@@ -128,21 +127,21 @@ impl<'a> Element<'a> {
 
     /// Sets the property to a primitive value.
     pub fn value(self, val: impl XmpType) {
-        write!(self.writer.buf, ">").unwrap();
-        val.write(&mut self.writer.buf).unwrap();
+        self.writer.buf.push('>');
+        val.write(&mut self.writer.buf);
         self.close();
     }
 
     /// Start writing a struct as the property value.
     pub fn obj(self) -> Struct<'a> {
         self.writer.namespaces.insert(Namespace::Rdf);
-        write!(self.writer.buf, " rdf:parseType=\"Resource\">").unwrap();
+        self.writer.buf.push_str(" rdf:parseType=\"Resource\">");
         Struct::start(self.writer, self.name, self.namespace)
     }
 
     /// Start writing an array as the property value.
     pub fn array(self, kind: RdfCollectionType) -> Array<'a> {
-        write!(self.writer.buf, ">").unwrap();
+        self.writer.buf.push('>');
         Array::start(self.writer, kind, self.name, self.namespace)
     }
 
@@ -289,58 +288,55 @@ impl Drop for Struct<'_> {
 /// Primitive XMP types.
 pub trait XmpType {
     /// Write the value to the buffer.
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error>;
+    fn write(&self, buf: &mut String);
 }
 
 impl XmpType for bool {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+    fn write(&self, buf: &mut String) {
         if *self {
-            buf.extend_from_slice(b"True");
+            buf.push_str("True");
         } else {
-            buf.extend_from_slice(b"False");
+            buf.push_str("False");
         }
-        Ok(())
     }
 }
 
 impl XmpType for i32 {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        write!(buf, "{}", self)
+    fn write(&self, buf: &mut String) {
+        write!(buf, "{}", self).unwrap();
     }
 }
 
 impl XmpType for i64 {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        write!(buf, "{}", self)
+    fn write(&self, buf: &mut String) {
+        write!(buf, "{}", self).unwrap();
     }
 }
 
 impl XmpType for f32 {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        write!(buf, "{}", self)
+    fn write(&self, buf: &mut String) {
+        write!(buf, "{}", self).unwrap();
     }
 }
 
 impl XmpType for f64 {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        write!(buf, "{}", self)
+    fn write(&self, buf: &mut String) {
+        write!(buf, "{}", self).unwrap();
     }
 }
 
 impl XmpType for &str {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        let mut res = String::new();
+    fn write(&self, buf: &mut String) {
         for c in self.chars() {
             match c {
-                '<' => res.push_str("&lt;"),
-                '>' => res.push_str("&gt;"),
-                '&' => res.push_str("&amp;"),
-                '\'' => res.push_str("&apos;"),
-                '"' => res.push_str("&quot;"),
-                _ => res.push(c),
+                '<' => buf.push_str("&lt;"),
+                '>' => buf.push_str("&gt;"),
+                '&' => buf.push_str("&amp;"),
+                '\'' => buf.push_str("&apos;"),
+                '"' => buf.push_str("&quot;"),
+                _ => buf.push(c),
             }
         }
-        write!(buf, "{}", res)
     }
 }
 
@@ -371,8 +367,8 @@ impl RdfCollectionType {
 pub struct LangId<'a>(pub &'a str);
 
 impl XmpType for LangId<'_> {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        write!(buf, "{}", self.0)
+    fn write(&self, buf: &mut String) {
+        buf.push_str(self.0);
     }
 }
 
@@ -456,7 +452,7 @@ impl DateTime {
 }
 
 impl XmpType for DateTime {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+    fn write(&self, buf: &mut String) {
         match self {
             DateTime {
                 year,
@@ -557,6 +553,7 @@ impl XmpType for DateTime {
                 panic!("Invalid XMP date");
             }
         }
+        .unwrap();
     }
 }
 
@@ -587,27 +584,31 @@ pub enum RenditionClass {
 }
 
 impl XmpType for RenditionClass {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+    fn write(&self, buf: &mut String) {
         match self {
-            Self::Default => write!(buf, "default"),
-            Self::Draft => write!(buf, "draft"),
-            Self::LowResolution => write!(buf, "low-res"),
-            Self::Proof => write!(buf, "proof"),
-            Self::Screen => write!(buf, "screen"),
+            Self::Default => buf.push_str("default"),
+            Self::Draft => buf.push_str("draft"),
+            Self::LowResolution => buf.push_str("low-res"),
+            Self::Proof => buf.push_str("proof"),
+            Self::Screen => buf.push_str("screen"),
             Self::Thumbnail { format, size, color_space } => {
-                write!(buf, "thumbnail")?;
+                buf.push_str("thumbnail");
                 if let Some(format) = format {
-                    write!(buf, ":{}", format)?;
+                    buf.push(':');
+                    buf.push_str(format);
                 }
                 if let Some((width, height)) = size {
-                    write!(buf, ":{}x{}", width, height)?;
+                    buf.push(':');
+                    buf.push_str(&width.to_string());
+                    buf.push('x');
+                    buf.push_str(&height.to_string());
                 }
                 if let Some(color_space) = color_space {
-                    write!(buf, ":{}", color_space)?;
+                    buf.push(':');
+                    buf.push_str(color_space);
                 }
-                Ok(())
             }
-            Self::Custom(s) => write!(buf, "{}", s),
+            Self::Custom(s) => buf.push_str(s),
         }
     }
 }
@@ -671,10 +672,10 @@ pub enum MaskMarkers {
 }
 
 impl XmpType for MaskMarkers {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+    fn write(&self, buf: &mut String) {
         match self {
-            Self::All => write!(buf, "All"),
-            Self::None => write!(buf, "None"),
+            Self::All => buf.push_str("All"),
+            Self::None => buf.push_str("None"),
         }
     }
 }
@@ -700,23 +701,23 @@ pub enum ResourceEventAction {
 }
 
 impl XmpType for ResourceEventAction {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+    fn write(&self, buf: &mut String) {
         match self {
-            Self::Converted => write!(buf, "converted"),
-            Self::Copied => write!(buf, "copied"),
-            Self::Created => write!(buf, "created"),
-            Self::Cropped => write!(buf, "cropped"),
-            Self::Edited => write!(buf, "edited"),
-            Self::Filtered => write!(buf, "filtered"),
-            Self::Formatted => write!(buf, "formatted"),
-            Self::VersionUpdated => write!(buf, "version_updated"),
-            Self::Printed => write!(buf, "printed"),
-            Self::Published => write!(buf, "published"),
-            Self::Managed => write!(buf, "managed"),
-            Self::Produced => write!(buf, "produced"),
-            Self::Resized => write!(buf, "resized"),
-            Self::Saved => write!(buf, "saved"),
-            Self::Custom(s) => write!(buf, "{}", s),
+            Self::Converted => buf.push_str("converted"),
+            Self::Copied => buf.push_str("copied"),
+            Self::Created => buf.push_str("created"),
+            Self::Cropped => buf.push_str("cropped"),
+            Self::Edited => buf.push_str("edited"),
+            Self::Filtered => buf.push_str("filtered"),
+            Self::Formatted => buf.push_str("formatted"),
+            Self::VersionUpdated => buf.push_str("version_updated"),
+            Self::Printed => buf.push_str("printed"),
+            Self::Published => buf.push_str("published"),
+            Self::Managed => buf.push_str("managed"),
+            Self::Produced => buf.push_str("produced"),
+            Self::Resized => buf.push_str("resized"),
+            Self::Saved => buf.push_str("saved"),
+            Self::Custom(s) => buf.push_str(s),
         }
     }
 }
@@ -730,13 +731,12 @@ pub enum ColorantMode {
 }
 
 impl XmpType for ColorantMode {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        buf.extend_from_slice(match self {
-            Self::CMYK => b"CMYK",
-            Self::RGB => b"RGB",
-            Self::Lab => b"Lab",
+    fn write(&self, buf: &mut String) {
+        buf.push_str(match self {
+            Self::CMYK => "CMYK",
+            Self::RGB => "RGB",
+            Self::Lab => "Lab",
         });
-        Ok(())
     }
 }
 
@@ -749,12 +749,11 @@ pub enum ColorantType {
 }
 
 impl XmpType for ColorantType {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
-        buf.extend_from_slice(match self {
-            Self::Process => b"PROCESS",
-            Self::Spot => b"SPOT",
+    fn write(&self, buf: &mut String) {
+        buf.push_str(match self {
+            Self::Process => "PROCESS",
+            Self::Spot => "SPOT",
         });
-        Ok(())
     }
 }
 
@@ -770,14 +769,14 @@ pub enum DimensionUnit<'a> {
 }
 
 impl<'a> XmpType for DimensionUnit<'a> {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+    fn write(&self, buf: &mut String) {
         match self {
-            Self::Inch => write!(buf, "inch"),
-            Self::Mm => write!(buf, "mm"),
-            Self::Pixel => write!(buf, "pixel"),
-            Self::Pica => write!(buf, "pica"),
-            Self::Point => write!(buf, "point"),
-            Self::Custom(s) => write!(buf, "{}", s),
+            Self::Inch => buf.push_str("inch"),
+            Self::Mm => buf.push_str("mm"),
+            Self::Pixel => buf.push_str("pixel"),
+            Self::Pica => buf.push_str("pica"),
+            Self::Point => buf.push_str("point"),
+            Self::Custom(s) => buf.push_str(s),
         }
     }
 }
@@ -793,13 +792,13 @@ pub enum FontType<'a> {
 }
 
 impl<'a> XmpType for FontType<'a> {
-    fn write(&self, buf: &mut Vec<u8>) -> Result<(), Error> {
+    fn write(&self, buf: &mut String) {
         match self {
-            Self::TrueType => write!(buf, "TrueType"),
-            Self::OpenType => write!(buf, "OpenType"),
-            Self::Type1 => write!(buf, "Type1"),
-            Self::Bitmap => write!(buf, "Bitmap"),
-            Self::Custom(s) => write!(buf, "{}", s),
+            Self::TrueType => buf.push_str("TrueType"),
+            Self::OpenType => buf.push_str("OpenType"),
+            Self::Type1 => buf.push_str("Type1"),
+            Self::Bitmap => buf.push_str("Bitmap"),
+            Self::Custom(s) => buf.push_str(s),
         }
     }
 }

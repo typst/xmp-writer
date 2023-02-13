@@ -9,7 +9,7 @@ use crate::XmpWriter;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(missing_docs)]
 #[non_exhaustive]
-pub enum Namespace {
+pub enum Namespace<'a> {
     Rdf,
     DublinCore,
     Xmp,
@@ -30,10 +30,10 @@ pub enum Namespace {
     AdobePdf,
     PdfAId,
     PdfXId,
-    Custom((String, String)),
+    Custom((&'a str, &'a str)),
 }
 
-impl Namespace {
+impl Namespace<'_> {
     /// Returns the URL for the namespace.
     pub fn url(&self) -> &str {
         match self {
@@ -94,25 +94,25 @@ impl Namespace {
 /// Created by [`XmpWriter::element`], [`Array::element`],
 /// [`Array::element_with_attrs`], [`Struct::element`],
 /// [`Struct::element_with_attrs`].
-pub struct Element<'a> {
-    writer: &'a mut XmpWriter,
+pub struct Element<'a, 'n: 'a> {
+    writer: &'a mut XmpWriter<'n>,
     name: &'a str,
-    namespace: Namespace,
+    namespace: Namespace<'n>,
 }
 
-impl<'a> Element<'a> {
+impl<'a, 'n: 'a> Element<'a, 'n> {
     pub(crate) fn start(
-        writer: &'a mut XmpWriter,
+        writer: &'a mut XmpWriter<'n>,
         name: &'a str,
-        namespace: Namespace,
+        namespace: Namespace<'n>,
     ) -> Self {
         Self::with_attrs(writer, name, namespace, iter::empty())
     }
 
     fn with_attrs<'b>(
-        writer: &'a mut XmpWriter,
+        writer: &'a mut XmpWriter<'n>,
         name: &'a str,
-        namespace: Namespace,
+        namespace: Namespace<'n>,
         attrs: impl IntoIterator<Item = (&'b str, &'b str)>,
     ) -> Self {
         write!(writer.buf, "<{}:{}", namespace.prefix(), name).unwrap();
@@ -133,14 +133,14 @@ impl<'a> Element<'a> {
     }
 
     /// Start writing a struct as the property value.
-    pub fn obj(self) -> Struct<'a> {
+    pub fn obj(self) -> Struct<'a, 'n> {
         self.writer.namespaces.insert(Namespace::Rdf);
         self.writer.buf.push_str(" rdf:parseType=\"Resource\">");
         Struct::start(self.writer, self.name, self.namespace)
     }
 
     /// Start writing an array as the property value.
-    pub fn array(self, kind: RdfCollectionType) -> Array<'a> {
+    pub fn array(self, kind: RdfCollectionType) -> Array<'a, 'n> {
         self.writer.buf.push('>');
         Array::start(self.writer, kind, self.name, self.namespace)
     }
@@ -197,19 +197,19 @@ impl<'a> Element<'a> {
 /// An XMP array value.
 ///
 /// Created by [`Element::array`].
-pub struct Array<'a> {
-    writer: &'a mut XmpWriter,
+pub struct Array<'a, 'n: 'a> {
+    writer: &'a mut XmpWriter<'n>,
     kind: RdfCollectionType,
     name: &'a str,
-    namespace: Namespace,
+    namespace: Namespace<'a>,
 }
 
-impl<'a> Array<'a> {
+impl<'a, 'n: 'a> Array<'a, 'n> {
     fn start(
-        writer: &'a mut XmpWriter,
+        writer: &'a mut XmpWriter<'n>,
         kind: RdfCollectionType,
         name: &'a str,
-        namespace: Namespace,
+        namespace: Namespace<'n>,
     ) -> Self {
         writer.namespaces.insert(Namespace::Rdf);
         write!(writer.buf, "<rdf:{}>", kind.rdf_type()).unwrap();
@@ -217,7 +217,7 @@ impl<'a> Array<'a> {
     }
 
     /// Start writing an element in the array.
-    pub fn element(&mut self) -> Element<'_> {
+    pub fn element(&mut self) -> Element<'_, 'n> {
         self.element_with_attrs(iter::empty())
     }
 
@@ -225,12 +225,12 @@ impl<'a> Array<'a> {
     pub fn element_with_attrs(
         &mut self,
         attrs: impl IntoIterator<Item = (&'a str, &'a str)>,
-    ) -> Element<'_> {
+    ) -> Element<'_, 'n> {
         Element::with_attrs(self.writer, "li", Namespace::Rdf, attrs)
     }
 }
 
-impl Drop for Array<'_> {
+impl Drop for Array<'_, '_> {
     fn drop(&mut self) {
         write!(
             self.writer.buf,
@@ -246,19 +246,27 @@ impl Drop for Array<'_> {
 /// An XMP struct value.
 ///
 /// Created by [`Element::obj`].
-pub struct Struct<'a> {
-    writer: &'a mut XmpWriter,
+pub struct Struct<'a, 'n: 'a> {
+    writer: &'a mut XmpWriter<'n>,
     name: &'a str,
-    namespace: Namespace,
+    namespace: Namespace<'a>,
 }
 
-impl<'a> Struct<'a> {
-    fn start(writer: &'a mut XmpWriter, name: &'a str, namespace: Namespace) -> Self {
+impl<'a, 'n: 'a> Struct<'a, 'n> {
+    fn start(
+        writer: &'a mut XmpWriter<'n>,
+        name: &'a str,
+        namespace: Namespace<'n>,
+    ) -> Self {
         Self { writer, name, namespace }
     }
 
     /// Start writing a property in the struct.
-    pub fn element(&mut self, name: &'a str, namespace: Namespace) -> Element<'_> {
+    pub fn element(
+        &mut self,
+        name: &'a str,
+        namespace: Namespace<'n>,
+    ) -> Element<'_, 'n> {
         self.element_with_attrs(name, namespace, iter::empty())
     }
 
@@ -266,14 +274,14 @@ impl<'a> Struct<'a> {
     pub fn element_with_attrs<'b>(
         &mut self,
         name: &'a str,
-        namespace: Namespace,
+        namespace: Namespace<'n>,
         attrs: impl IntoIterator<Item = (&'b str, &'b str)>,
-    ) -> Element<'_> {
+    ) -> Element<'_, 'n> {
         Element::with_attrs(self.writer, name, namespace, attrs)
     }
 }
 
-impl Drop for Struct<'_> {
+impl Drop for Struct<'_, '_> {
     fn drop(&mut self) {
         write!(
             self.writer.buf,
@@ -559,7 +567,7 @@ impl XmpType for DateTime {
 
 /// The intended use of the resource.
 #[derive(Debug, Clone, PartialEq)]
-pub enum RenditionClass {
+pub enum RenditionClass<'a> {
     /// The master resource.
     Default,
     /// A review copy.
@@ -573,17 +581,17 @@ pub enum RenditionClass {
     /// A thumbnail.
     Thumbnail {
         /// The format of the thumbnail.
-        format: Option<String>,
+        format: Option<&'a str>,
         /// The size of the thumbnail.
         size: Option<(u32, u32)>,
         /// The color space of the thumbnail.
-        color_space: Option<String>,
+        color_space: Option<&'a str>,
     },
     /// A custom rendition class.
-    Custom(String),
+    Custom(&'a str),
 }
 
-impl XmpType for RenditionClass {
+impl XmpType for RenditionClass<'_> {
     fn write(&self, buf: &mut String) {
         match self {
             Self::Default => buf.push_str("default"),
@@ -682,7 +690,7 @@ impl XmpType for MaskMarkers {
 
 /// The type of a resource event.
 #[allow(missing_docs)]
-pub enum ResourceEventAction {
+pub enum ResourceEventAction<'a> {
     Converted,
     Copied,
     Created,
@@ -697,10 +705,10 @@ pub enum ResourceEventAction {
     Produced,
     Resized,
     Saved,
-    Custom(String),
+    Custom(&'a str),
 }
 
-impl XmpType for ResourceEventAction {
+impl XmpType for ResourceEventAction<'_> {
     fn write(&self, buf: &mut String) {
         match self {
             Self::Converted => buf.push_str("converted"),

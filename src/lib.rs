@@ -51,8 +51,8 @@ pub use types::*;
 
 /// Implements `Deref` and `DerefMut` by delegating to a field of a struct.
 macro_rules! deref {
-    ($a:lifetime, $from:ty => $to:ty, $field:ident) => {
-        impl<$a> std::ops::Deref for $from {
+    ($a:lifetime, $b:lifetime, $from:ty => $to:ty, $field:ident) => {
+        impl<$a, $b> std::ops::Deref for $from {
             type Target = $to;
 
             #[inline]
@@ -61,7 +61,7 @@ macro_rules! deref {
             }
         }
 
-        impl<$a> std::ops::DerefMut for $from {
+        impl<$a, $b> std::ops::DerefMut for $from {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 &mut self.$field
@@ -74,14 +74,14 @@ macro_rules! deref {
 ///
 /// Use [`XmpWriter::new`] to create a new instance and get the resulting XMP
 /// metadata by calling [`XmpWriter::finish`].
-pub struct XmpWriter {
+pub struct XmpWriter<'a> {
     pub(crate) buf: String,
-    namespaces: BTreeSet<Namespace>,
+    namespaces: BTreeSet<Namespace<'a>>,
 }
 
-impl XmpWriter {
+impl<'n> XmpWriter<'n> {
     /// Create a new XMP writer.
-    pub fn new() -> XmpWriter {
+    pub fn new() -> XmpWriter<'n> {
         Self {
             buf: String::new(),
             namespaces: BTreeSet::new(),
@@ -90,7 +90,11 @@ impl XmpWriter {
 
     /// Add a custom element to the XMP metadata.
     #[inline]
-    pub fn element<'a>(&'a mut self, name: &'a str, namespace: Namespace) -> Element<'a> {
+    pub fn element<'a>(
+        &'a mut self,
+        name: &'a str,
+        namespace: Namespace<'n>,
+    ) -> Element<'a, 'n> {
         Element::start(self, name, namespace)
     }
 
@@ -125,7 +129,7 @@ impl XmpWriter {
 }
 
 /// XMP Dublin Core Schema.
-impl XmpWriter {
+impl XmpWriter<'_> {
     /// Write the `dc:contributor` property.
     ///
     /// All entities responsible for making contributions to the resource not
@@ -284,7 +288,7 @@ impl XmpWriter {
 }
 
 /// XMP Basic Schema.
-impl XmpWriter {
+impl<'n> XmpWriter<'n> {
     /// Write the `xmp:BaseURL` property.
     ///
     /// The base URL for relative URLs in the document.
@@ -364,7 +368,7 @@ impl XmpWriter {
     /// Start writing the `xmp:Thumbnails` property.
     ///
     /// A thumbnail image of the resource.
-    pub fn thumbnails(&mut self) -> ThumbnailsWriter<'_> {
+    pub fn thumbnails(&mut self) -> ThumbnailsWriter<'_, 'n> {
         ThumbnailsWriter::start(
             self.element("Thumbnails", Namespace::Xmp)
                 .array(RdfCollectionType::Alt),
@@ -373,7 +377,7 @@ impl XmpWriter {
 }
 
 /// XMP Rights Management Schema.
-impl XmpWriter {
+impl XmpWriter<'_> {
     /// Write the `xmpRights:Certificate` property.
     ///
     /// A URL with a rights management certificate.
@@ -421,11 +425,11 @@ impl XmpWriter {
 }
 
 /// XMP Media Management Schema.
-impl XmpWriter {
+impl<'n> XmpWriter<'n> {
     /// Start writing the `xmpMM:DerivedFrom` property.
     ///
     /// The document from which this document is derived.
-    pub fn derived_from(&mut self) -> ResourceRefWriter<'_> {
+    pub fn derived_from(&mut self) -> ResourceRefWriter<'_, 'n> {
         ResourceRefWriter::start(self.element("DerivedFrom", Namespace::XmpMedia).obj())
     }
 
@@ -441,7 +445,7 @@ impl XmpWriter {
     /// Start writing the `xmpMM:History` property.
     ///
     /// A list of actions taken on the document.
-    pub fn history<'a>(&mut self) -> ResourceEventsWriter<'_> {
+    pub fn history<'a>(&mut self) -> ResourceEventsWriter<'_, 'n> {
         ResourceEventsWriter::start(
             self.element("History", Namespace::XmpMedia)
                 .array(RdfCollectionType::Seq),
@@ -451,7 +455,7 @@ impl XmpWriter {
     /// Write the `xmpMM:Ingredients` property.
     ///
     /// A list of resources that were used to create the document.
-    pub fn ingredients<'a>(&mut self) -> ResourceRefsWriter<'_> {
+    pub fn ingredients<'a>(&mut self) -> ResourceRefsWriter<'_, 'n> {
         ResourceRefsWriter::start(
             self.element("Ingredients", Namespace::XmpMedia)
                 .array(RdfCollectionType::Bag),
@@ -470,7 +474,7 @@ impl XmpWriter {
     /// Start writing the `xmpMM:ManagedFrom` property.
     ///
     /// A reference to the document before it was managed.
-    pub fn managed_from(&mut self) -> ResourceRefWriter<'_> {
+    pub fn managed_from(&mut self) -> ResourceRefWriter<'_, 'n> {
         ResourceRefWriter::start(self.element("ManagedFrom", Namespace::XmpMedia).obj())
     }
 
@@ -518,7 +522,7 @@ impl XmpWriter {
     ///
     /// An unordered array of structs with custom properties, each of which must
     /// have an `xmpMM:InstanceID` property.
-    pub fn pantry(&mut self) -> PantryWriter<'_> {
+    pub fn pantry(&mut self) -> PantryWriter<'_, 'n> {
         PantryWriter::start(
             self.element("Pantry", Namespace::XmpMedia)
                 .array(RdfCollectionType::Bag),
@@ -553,7 +557,7 @@ impl XmpWriter {
     /// Start writing the `xmpMM:Versions` property.
     ///
     /// The list of versions of the document, starting with the oldest version.
-    pub fn version_ref(&mut self) -> VersionsWriter<'_> {
+    pub fn version_ref(&mut self) -> VersionsWriter<'_, 'n> {
         VersionsWriter::start(
             self.element("Versions", Namespace::XmpMedia)
                 .array(RdfCollectionType::Seq),
@@ -562,11 +566,11 @@ impl XmpWriter {
 }
 
 /// Basic Job Management.
-impl XmpWriter {
+impl<'n> XmpWriter<'n> {
     /// Start writing the `xmpBJ:JobRef` property.
     ///
     /// A reference to jobs in a system that involves this resource.
-    pub fn jobs(&mut self) -> JobsWriter<'_> {
+    pub fn jobs(&mut self) -> JobsWriter<'_, 'n> {
         JobsWriter::start(
             self.element("Job", Namespace::XmpJobManagement)
                 .array(RdfCollectionType::Bag),
@@ -575,11 +579,11 @@ impl XmpWriter {
 }
 
 /// Paged-text.
-impl XmpWriter {
+impl<'n> XmpWriter<'n> {
     /// Start writing the `xmpTPg:NPages` property.
     ///
     /// Colorants used in the document.
-    pub fn colorants(&mut self) -> ColorantsWriter<'_> {
+    pub fn colorants(&mut self) -> ColorantsWriter<'_, 'n> {
         ColorantsWriter::start(
             self.element("Colorants", Namespace::XmpPaged)
                 .array(RdfCollectionType::Seq),
@@ -589,7 +593,7 @@ impl XmpWriter {
     /// Start writing the `xmpTPg:Fonts` property.
     ///
     /// Fonts used in the document.
-    pub fn fonts(&mut self) -> FontsWriter<'_> {
+    pub fn fonts(&mut self) -> FontsWriter<'_, 'n> {
         FontsWriter::start(
             self.element("Fonts", Namespace::XmpPaged)
                 .array(RdfCollectionType::Bag),
@@ -599,7 +603,7 @@ impl XmpWriter {
     /// Start writing the `xmpTPg:MaxPageSize` property.
     ///
     /// The maximum page size in the document.
-    pub fn max_page_size(&mut self) -> DimensionsWriter<'_> {
+    pub fn max_page_size(&mut self) -> DimensionsWriter<'_, 'n> {
         DimensionsWriter::start(self.element("MaxPageSize", Namespace::XmpPaged).obj())
     }
 
@@ -626,7 +630,7 @@ impl XmpWriter {
 // TODO: Dynamic Media
 
 /// XMPIDQ.
-impl XmpWriter {
+impl XmpWriter<'_> {
     /// Write the `xmpidq:GImg` property.
     ///
     /// Identifies the scheme of the [`XmpWriter::xmp_identifier`] property.
@@ -637,7 +641,7 @@ impl XmpWriter {
 }
 
 /// Adobe PDF.
-impl XmpWriter {
+impl XmpWriter<'_> {
     /// Write the `pdf:Keywords` property.
     ///
     /// The document's keywords.
@@ -673,7 +677,7 @@ impl XmpWriter {
 }
 
 /// PDF/A and PDF/X.
-impl XmpWriter {
+impl XmpWriter<'_> {
     /// Write the `pdfaid:part` property.
     ///
     /// The part of the PDF/A standard to which the document conforms (e.g.
@@ -705,12 +709,12 @@ impl XmpWriter {
 /// A self-contained thumbnail image.
 ///
 /// Created by [`ThumbnailsWriter::add_thumbnail`].
-pub struct ThumbnailWriter<'a> {
-    stc: Struct<'a>,
+pub struct ThumbnailWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> ThumbnailWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n: 'a> ThumbnailWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -747,37 +751,37 @@ impl<'a> ThumbnailWriter<'a> {
     }
 }
 
-deref!('a, ThumbnailWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, ThumbnailWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Write a set of thumbnails.
 ///
 /// Created by [`XmpWriter::thumbnails`].
-pub struct ThumbnailsWriter<'a> {
-    array: Array<'a>,
+pub struct ThumbnailsWriter<'a, 'n: 'a> {
+    array: Array<'a, 'n>,
 }
 
-impl<'a> ThumbnailsWriter<'a> {
-    fn start(array: Array<'a>) -> Self {
+impl<'a, 'n: 'a> ThumbnailsWriter<'a, 'n> {
+    fn start(array: Array<'a, 'n>) -> Self {
         Self { array }
     }
 
     /// Add a thumbnail.
-    pub fn add_thumbnail(&mut self) -> ThumbnailWriter<'_> {
+    pub fn add_thumbnail(&mut self) -> ThumbnailWriter<'_, 'n> {
         ThumbnailWriter::start(self.array.element().obj())
     }
 }
 
-deref!('a, ThumbnailsWriter<'a> => Array<'a>, array);
+deref!('a, 'n, ThumbnailsWriter<'a, 'n> => Array<'a, 'n>, array);
 
 /// Writer for a reference to a resource.
 ///
 /// Created by [`XmpWriter::derived_from`], [`XmpWriter::managed_from`], or [`ResourceRefsWriter::add_ref`].
-pub struct ResourceRefWriter<'a> {
-    stc: Struct<'a>,
+pub struct ResourceRefWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> ResourceRefWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n: 'a> ResourceRefWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -922,37 +926,37 @@ impl<'a> ResourceRefWriter<'a> {
     }
 }
 
-deref!('a, ResourceRefWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, ResourceRefWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Writer for a resource reference array.
 ///
 /// Created by [`XmpWriter::ingredients`].
-pub struct ResourceRefsWriter<'a> {
-    array: Array<'a>,
+pub struct ResourceRefsWriter<'a, 'n: 'a> {
+    array: Array<'a, 'n>,
 }
 
-impl<'a> ResourceRefsWriter<'a> {
-    fn start(array: Array<'a>) -> Self {
+impl<'a, 'n: 'a> ResourceRefsWriter<'a, 'n> {
+    fn start(array: Array<'a, 'n>) -> Self {
         Self { array }
     }
 
     /// Add a reference to the array.
-    pub fn add_ref(&mut self) -> ResourceRefWriter<'_> {
+    pub fn add_ref(&mut self) -> ResourceRefWriter<'_, 'n> {
         ResourceRefWriter::start(self.array.element().obj())
     }
 }
 
-deref!('a, ResourceRefsWriter<'a> => Array<'a>, array);
+deref!('a, 'n, ResourceRefsWriter<'a, 'n> => Array<'a, 'n>, array);
 
 /// Writer for an event that occurred to a resource.
 ///
 /// Created by [`VersionWriter::event`] and [`ResourceEventsWriter::add_event`].
-pub struct ResourceEventWriter<'a> {
-    stc: Struct<'a>,
+pub struct ResourceEventWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> ResourceEventWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n: 'a> ResourceEventWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -1008,38 +1012,38 @@ impl<'a> ResourceEventWriter<'a> {
     }
 }
 
-deref!('a, ResourceEventWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, ResourceEventWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Writer for a resource event array.
 ///
 /// Created by [`XmpWriter::history`].
-pub struct ResourceEventsWriter<'a> {
-    array: Array<'a>,
+pub struct ResourceEventsWriter<'a, 'n: 'a> {
+    array: Array<'a, 'n>,
 }
 
-impl<'a> ResourceEventsWriter<'a> {
-    fn start(array: Array<'a>) -> Self {
+impl<'a, 'n: 'a> ResourceEventsWriter<'a, 'n> {
+    fn start(array: Array<'a, 'n>) -> Self {
         Self { array }
     }
 
     /// Add an event to the array.
-    pub fn add_event(&mut self) -> ResourceEventWriter<'_> {
+    pub fn add_event(&mut self) -> ResourceEventWriter<'_, 'n> {
         ResourceEventWriter::start(self.array.element().obj())
     }
 }
 
-deref!('a, ResourceEventsWriter<'a> => Array<'a>, array);
+deref!('a, 'n, ResourceEventsWriter<'a, 'n> => Array<'a, 'n>, array);
 
 /// Writer for an item in a Pantry array.
 ///
 /// Use the `Deref` impl to access the underlying [`Struct`] and add properties.
 /// Created by [`PantryWriter::add_item`].
-pub struct PantryItemWriter<'a> {
-    stc: Struct<'a>,
+pub struct PantryItemWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> PantryItemWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n: 'a> PantryItemWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -1050,35 +1054,35 @@ impl<'a> PantryItemWriter<'a> {
     }
 }
 
-deref!('a, PantryItemWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, PantryItemWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Writer for a Pantry array.
-pub struct PantryWriter<'a> {
-    array: Array<'a>,
+pub struct PantryWriter<'a, 'n: 'a> {
+    array: Array<'a, 'n>,
 }
 
-impl<'a> PantryWriter<'a> {
-    fn start(array: Array<'a>) -> Self {
+impl<'a, 'n: 'a> PantryWriter<'a, 'n> {
+    fn start(array: Array<'a, 'n>) -> Self {
         Self { array }
     }
 
     /// Add an item to the array.
-    pub fn add_item(&mut self) -> PantryItemWriter<'_> {
+    pub fn add_item(&mut self) -> PantryItemWriter<'_, 'n> {
         PantryItemWriter::start(self.array.element().obj())
     }
 }
 
-deref!('a, PantryWriter<'a> => Array<'a>, array);
+deref!('a, 'n, PantryWriter<'a, 'n> => Array<'a, 'n>, array);
 
 /// Writer for a version struct.
 ///
 /// Created by [`VersionsWriter::add_version`].
-pub struct VersionWriter<'a> {
-    stc: Struct<'a>,
+pub struct VersionWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> VersionWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n: 'a> VersionWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -1093,7 +1097,7 @@ impl<'a> VersionWriter<'a> {
     /// Start writing the `stVer:event` property.
     ///
     /// The event that created the version.
-    pub fn event(&mut self) -> ResourceEventWriter<'_> {
+    pub fn event(&mut self) -> ResourceEventWriter<'_, 'n> {
         ResourceEventWriter::start(self.stc.element("event", Namespace::XmpVersion).obj())
     }
 
@@ -1122,37 +1126,37 @@ impl<'a> VersionWriter<'a> {
     }
 }
 
-deref!('a, VersionWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, VersionWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Writer for a versions array.
 ///
 /// Created by [`XmpWriter::version_ref`].
-pub struct VersionsWriter<'a> {
-    array: Array<'a>,
+pub struct VersionsWriter<'a, 'n: 'a> {
+    array: Array<'a, 'n>,
 }
 
-impl<'a> VersionsWriter<'a> {
-    fn start(array: Array<'a>) -> Self {
+impl<'a, 'n: 'a> VersionsWriter<'a, 'n> {
+    fn start(array: Array<'a, 'n>) -> Self {
         Self { array }
     }
 
     /// Add a version to the array.
-    pub fn add_version(&mut self) -> VersionWriter<'_> {
+    pub fn add_version(&mut self) -> VersionWriter<'_, 'n> {
         VersionWriter::start(self.array.element().obj())
     }
 }
 
-deref!('a, VersionsWriter<'a> => Array<'a>, array);
+deref!('a, 'n, VersionsWriter<'a, 'n> => Array<'a, 'n>, array);
 
 /// Writer for a job struct.
 ///
 /// Created by [`JobsWriter::add_job`].
-pub struct JobWriter<'a> {
-    stc: Struct<'a>,
+pub struct JobWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> JobWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n: 'a> JobWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -1181,37 +1185,37 @@ impl<'a> JobWriter<'a> {
     }
 }
 
-deref!('a, JobWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, JobWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Writer for a job array.
 ///
 /// Created by [`XmpWriter::jobs`].
-pub struct JobsWriter<'a> {
-    array: Array<'a>,
+pub struct JobsWriter<'a, 'n: 'a> {
+    array: Array<'a, 'n>,
 }
 
-impl<'a> JobsWriter<'a> {
-    fn start(array: Array<'a>) -> Self {
+impl<'a, 'n: 'a> JobsWriter<'a, 'n> {
+    fn start(array: Array<'a, 'n>) -> Self {
         Self { array }
     }
 
     /// Add a job to the array.
-    pub fn add_job(&mut self) -> JobWriter<'_> {
+    pub fn add_job(&mut self) -> JobWriter<'_, 'n> {
         JobWriter::start(self.array.element().obj())
     }
 }
 
-deref!('a, JobsWriter<'a> => Array<'a>, array);
+deref!('a, 'n, JobsWriter<'a, 'n> => Array<'a, 'n>, array);
 
 /// A writer for colorant structs.
 ///
 /// Created by [`ColorantsWriter::add_colorant`].
-pub struct ColorantWriter<'a> {
-    stc: Struct<'a>,
+pub struct ColorantWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> ColorantWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n: 'a> ColorantWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -1320,37 +1324,37 @@ impl<'a> ColorantWriter<'a> {
     }
 }
 
-deref!('a, ColorantWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, ColorantWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Writer for an array of colorants.
 ///
 /// Created by [`XmpWriter::colorants`].
-pub struct ColorantsWriter<'a> {
-    array: Array<'a>,
+pub struct ColorantsWriter<'a, 'n: 'a> {
+    array: Array<'a, 'n>,
 }
 
-impl<'a> ColorantsWriter<'a> {
-    fn start(array: Array<'a>) -> Self {
+impl<'a, 'n> ColorantsWriter<'a, 'n> {
+    fn start(array: Array<'a, 'n>) -> Self {
         Self { array }
     }
 
     /// Add a new colorant to the array.
-    pub fn add_colorant(&mut self) -> ColorantWriter<'_> {
+    pub fn add_colorant(&mut self) -> ColorantWriter<'_, 'n> {
         ColorantWriter::start(self.array.element().obj())
     }
 }
 
-deref!('a, ColorantsWriter<'a> => Array<'a>, array);
+deref!('a, 'n, ColorantsWriter<'a, 'n> => Array<'a, 'n>, array);
 
 /// Writer for a dimensions struct.
 ///
 /// Created by [`XmpWriter::max_page_size`].
-pub struct DimensionsWriter<'a> {
-    stc: Struct<'a>,
+pub struct DimensionsWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> DimensionsWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n> DimensionsWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -1379,17 +1383,17 @@ impl<'a> DimensionsWriter<'a> {
     }
 }
 
-deref!('a, DimensionsWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, DimensionsWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Writer for a font struct.
 ///
 /// Created by [`XmpWriter::fonts`].
-pub struct FontWriter<'a> {
-    stc: Struct<'a>,
+pub struct FontWriter<'a, 'n: 'a> {
+    stc: Struct<'a, 'n>,
 }
 
-impl<'a> FontWriter<'a> {
-    fn start(stc: Struct<'a>) -> Self {
+impl<'a, 'n: 'a> FontWriter<'a, 'n> {
+    fn start(stc: Struct<'a, 'n>) -> Self {
         Self { stc }
     }
 
@@ -1468,24 +1472,24 @@ impl<'a> FontWriter<'a> {
     }
 }
 
-deref!('a, FontWriter<'a> => Struct<'a>, stc);
+deref!('a, 'n, FontWriter<'a, 'n> => Struct<'a, 'n>, stc);
 
 /// Writer for an array of fonts.
 ///
 /// Created by [`XmpWriter::fonts`].
-pub struct FontsWriter<'a> {
-    array: Array<'a>,
+pub struct FontsWriter<'a, 'n: 'a> {
+    array: Array<'a, 'n>,
 }
 
-impl<'a> FontsWriter<'a> {
-    fn start(array: Array<'a>) -> Self {
+impl<'a, 'n: 'a> FontsWriter<'a, 'n> {
+    fn start(array: Array<'a, 'n>) -> Self {
         Self { array }
     }
 
     /// Add a new font to the array.
-    pub fn add_font(&mut self) -> FontWriter<'_> {
+    pub fn add_font(&mut self) -> FontWriter<'_, 'n> {
         FontWriter::start(self.array.element().obj())
     }
 }
 
-deref!('a, FontsWriter<'a> => Array<'a>, array);
+deref!('a, 'n, FontsWriter<'a, 'n> => Array<'a, 'n>, array);

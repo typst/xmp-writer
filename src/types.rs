@@ -146,13 +146,7 @@ impl<'a, 'n: 'a> Element<'a, 'n> {
     }
 
     fn close(self) {
-        write!(
-            self.writer.buf,
-            "</{}:{}>",
-            self.namespace.prefix(),
-            self.name
-        )
-        .unwrap();
+        write!(self.writer.buf, "</{}:{}>", self.namespace.prefix(), self.name).unwrap();
     }
 
     /// Set a language alternative of primitive values as the property value.
@@ -283,13 +277,7 @@ impl<'a, 'n: 'a> Struct<'a, 'n> {
 
 impl Drop for Struct<'_, '_> {
     fn drop(&mut self) {
-        write!(
-            self.writer.buf,
-            "</{}:{}>",
-            self.namespace.prefix(),
-            self.name
-        )
-        .unwrap();
+        write!(self.writer.buf, "</{}:{}>", self.namespace.prefix(), self.name).unwrap();
     }
 }
 
@@ -649,10 +637,9 @@ impl Rating {
             Some(3) => Self::ThreeStars,
             Some(4) => Self::FourStars,
             Some(5) => Self::FiveStars,
-            Some(stars) => panic!(
-                "Invalid number of stars: {} (must be between 0 and 5)",
-                stars
-            ),
+            Some(stars) => {
+                panic!("Invalid number of stars: {} (must be between 0 and 5)", stars)
+            }
             None => Self::Unknown,
         }
     }

@@ -82,10 +82,7 @@ pub struct XmpWriter<'a> {
 impl<'n> XmpWriter<'n> {
     /// Create a new XMP writer.
     pub fn new() -> XmpWriter<'n> {
-        Self {
-            buf: String::new(),
-            namespaces: BTreeSet::new(),
-        }
+        Self { buf: String::new(), namespaces: BTreeSet::new() }
     }
 
     /// Add a custom element to the XMP metadata.
@@ -112,13 +109,8 @@ impl<'n> XmpWriter<'n> {
         .unwrap();
 
         for namespace in self.namespaces.into_iter().filter(|ns| &Namespace::Rdf != ns) {
-            write!(
-                &mut buf,
-                " xmlns:{}=\"{}\" ",
-                namespace.prefix(),
-                namespace.url()
-            )
-            .unwrap();
+            write!(&mut buf, " xmlns:{}=\"{}\" ", namespace.prefix(), namespace.url())
+                .unwrap();
         }
 
         buf.push('>');

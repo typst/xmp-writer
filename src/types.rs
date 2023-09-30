@@ -376,19 +376,34 @@ impl Default for LangId<'_> {
 
 /// A date and time.
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(missing_docs)]
 pub struct DateTime {
-    year: u16,
-    month: Option<u8>,
-    day: Option<u8>,
-    hour: Option<u8>,
-    minute: Option<u8>,
-    second: Option<u8>,
-    tz_hour: Option<i8>,
-    tz_minute: Option<i8>,
+    pub year: u16,
+    pub month: Option<u8>,
+    pub day: Option<u8>,
+    pub hour: Option<u8>,
+    pub minute: Option<u8>,
+    pub second: Option<u8>,
+    pub timezone: Option<Timezone>,
+}
+
+/// A timezone.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Timezone {
+    /// UTC time. Use `Local` for British time.
+    Utc,
+    /// A local timezone offset.
+    Local {
+        /// Timezone offset in hours.
+        hour: i8,
+        /// Timezone offset in minutes.
+        minute: i8,
+    },
 }
 
 impl DateTime {
     /// Create a new date and time with all fields.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         year: u16,
         month: u8,
@@ -396,8 +411,7 @@ impl DateTime {
         hour: u8,
         minute: u8,
         second: u8,
-        tz_hour: i8,
-        tz_minute: i8,
+        timezone: Timezone,
     ) -> Self {
         Self {
             year,
@@ -406,8 +420,7 @@ impl DateTime {
             hour: Some(hour),
             minute: Some(minute),
             second: Some(second),
-            tz_hour: Some(tz_hour),
-            tz_minute: Some(tz_minute),
+            timezone: Some(timezone),
         }
     }
 
@@ -420,8 +433,7 @@ impl DateTime {
             hour: None,
             minute: None,
             second: None,
-            tz_hour: None,
-            tz_minute: None,
+            timezone: None,
         }
     }
 
@@ -441,115 +453,27 @@ impl DateTime {
             hour: Some(hour),
             minute: Some(minute),
             second: Some(second),
-            tz_hour: None,
-            tz_minute: None,
+            timezone: None,
         }
     }
 }
 
 impl XmpType for DateTime {
     fn write(&self, buf: &mut String) {
-        match self {
-            DateTime {
-                year,
-                month: None,
-                day: None,
-                hour: None,
-                minute: None,
-                second: None,
-                tz_hour: None,
-                tz_minute: None,
-            } => {
-                write!(buf, "{:04}", year)
+        (|| {
+            write!(buf, "{:04}", self.year).unwrap();
+            write!(buf, "-{:02}", self.month?).unwrap();
+            write!(buf, "-{:02}", self.day?).unwrap();
+            write!(buf, "T{:02}:{:02}", self.hour?, self.minute?).unwrap();
+            write!(buf, ":{:02}", self.second?).unwrap();
+            match self.timezone? {
+                Timezone::Utc => buf.push('Z'),
+                Timezone::Local { hour, minute } => {
+                    write!(buf, "{:+03}:{:02}", hour, minute).unwrap();
+                }
             }
-            DateTime {
-                year,
-                month: Some(month),
-                day: None,
-                hour: None,
-                minute: None,
-                second: None,
-                tz_hour: None,
-                tz_minute: None,
-            } => {
-                write!(buf, "{:04}-{:02}", year, month)
-            }
-            DateTime {
-                year,
-                month: Some(month),
-                day: Some(day),
-                hour: None,
-                minute: None,
-                second: None,
-                tz_hour: None,
-                tz_minute: None,
-            } => {
-                write!(buf, "{:04}-{:02}-{:02}", year, month, day)
-            }
-            DateTime {
-                year,
-                month: Some(month),
-                day: Some(day),
-                hour: Some(hour),
-                minute,
-                second: None,
-                tz_hour: None,
-                tz_minute: None,
-            } => {
-                write!(
-                    buf,
-                    "{:04}-{:02}-{:02}T{:02}:{:02}",
-                    year,
-                    month,
-                    day,
-                    hour,
-                    minute.unwrap_or_default()
-                )
-            }
-            DateTime {
-                year,
-                month: Some(month),
-                day: Some(day),
-                hour: Some(hour),
-                minute: Some(minute),
-                second: Some(second),
-                tz_hour: None,
-                tz_minute: None,
-            } => {
-                write!(
-                    buf,
-                    "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
-                    year, month, day, hour, minute, second
-                )
-            }
-            DateTime {
-                year,
-                month: Some(month),
-                day: Some(day),
-                hour: Some(hour),
-                minute: Some(minute),
-                second: Some(second),
-                tz_hour: Some(tz_hour),
-                tz_minute,
-            } => {
-                write!(
-                    buf,
-                    "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}{:03}:{:02}",
-                    year,
-                    month,
-                    day,
-                    hour,
-                    minute,
-                    second,
-                    tz_hour,
-                    tz_minute.unwrap_or_default()
-                )
-            }
-            _ => {
-                panic!("Invalid XMP date");
-            }
-        }
-        .unwrap();
+            Some(())
+        })();
     }
 }
 

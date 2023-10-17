@@ -384,6 +384,8 @@ pub struct DateTime {
     pub hour: Option<u8>,
     pub minute: Option<u8>,
     pub second: Option<u8>,
+    /// The timezone of this date and time. No assumptions about the timezone or
+    /// locale should be made if this is `None`.
     pub timezone: Option<Timezone>,
 }
 
@@ -421,6 +423,19 @@ impl DateTime {
             minute: Some(minute),
             second: Some(second),
             timezone: Some(timezone),
+        }
+    }
+
+    /// Create a new date with a year only.
+    pub fn year(year: u16) -> Self {
+        Self {
+            year,
+            month: None,
+            day: None,
+            hour: None,
+            minute: None,
+            second: None,
+            timezone: None,
         }
     }
 

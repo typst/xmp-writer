@@ -6,7 +6,7 @@ Write XMP metadata, step by step.
 
 ```toml
 [dependencies]
-xmp-writer = "0.1"
+xmp-writer = "0.2"
 ```
 
 XMP is a metadata format developed by Adobe. It is either embedded into
@@ -37,7 +37,7 @@ colors.add_colorant().swatch_name("Red");
 colors.add_colorant().swatch_name("Green");
 drop(colors);
 
-writer.creator_tool("xmp-writer 0.1.0");
+writer.creator_tool("xmp-writer 0.2.0");
 
 println!("{}", std::str::from_utf8(&writer.finish(None)).unwrap());
 ```

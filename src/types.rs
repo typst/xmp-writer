@@ -28,14 +28,71 @@ pub enum Namespace<'a> {
     XmpImage,
     XmpIdq,
     AdobePdf,
+    #[cfg(feature = "pdfa")]
     PdfAId,
     PdfXId,
-    Custom((&'a str, &'a str)),
+    #[cfg(feature = "pdfa")]
+    PdfAExtension,
+    #[cfg(feature = "pdfa")]
+    PdfASchema,
+    #[cfg(feature = "pdfa")]
+    PdfAProperty,
+    #[cfg(feature = "pdfa")]
+    PdfAType,
+    #[cfg(feature = "pdfa")]
+    PdfAField,
+    Custom(Box<CustomNamespace<'a>>),
 }
 
-impl Namespace<'_> {
+/// A custom XML namespace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CustomNamespace<'a> {
+    name: &'a str,
+    namespace: &'a str,
+    url: &'a str,
+}
+
+impl<'a> Namespace<'a> {
+    /// Returns a human-readable name for the namespace.
+    pub const fn name(&self) -> &'a str {
+        match self {
+            Self::Rdf => "RDF",
+            Self::DublinCore => "Dublin Core",
+            Self::Xmp => "XMP",
+            Self::XmpRights => "XMP Rights",
+            Self::XmpResourceRef => "XMP Resource Reference",
+            Self::XmpResourceEvent => "XMP Resource Event",
+            Self::XmpVersion => "XMP Version",
+            Self::XmpJob => "XMP Job Management",
+            Self::XmpColorant => "XMP Colorant",
+            Self::XmpFont => "XMP Font",
+            Self::XmpDimensions => "XMP Dimensions",
+            Self::XmpMedia => "XMP Media Management",
+            Self::XmpJobManagement => "XMP Job Management",
+            Self::XmpPaged => "XMP Paged Text",
+            Self::XmpDynamicMedia => "XMP Dynamic Media",
+            Self::XmpImage => "XMP Image",
+            Self::AdobePdf => "Adobe PDF",
+            Self::XmpIdq => "XMP Identifier Qualifier",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAId => "PDF/A Identification",
+            Self::PdfXId => "PDF/X Identification",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAExtension => "PDF/A Extension schema container",
+            #[cfg(feature = "pdfa")]
+            Self::PdfASchema => "PDF/A Schema container",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAProperty => "PDF/A Property",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAType => "PDF/A Type",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAField => "PDF/A Field",
+            Self::Custom(custom) => custom.name,
+        }
+    }
+
     /// Returns the URL for the namespace.
-    pub fn url(&self) -> &str {
+    pub fn url(&self) -> &'a str {
         match self {
             Self::Rdf => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
             Self::DublinCore => "http://purl.org/dc/elements/1.1/",
@@ -55,14 +112,25 @@ impl Namespace<'_> {
             Self::XmpImage => "http://ns.adobe.com/xap/1.0/g/img/",
             Self::AdobePdf => "http://ns.adobe.com/pdf/1.3/",
             Self::XmpIdq => "http://ns.adobe.com/xmp/Identifier/qual/1.0/",
+            #[cfg(feature = "pdfa")]
             Self::PdfAId => "http://www.aiim.org/pdfa/ns/id/",
             Self::PdfXId => "http://www.npes.org/pdfx/ns/id/",
-            Self::Custom((_, url)) => url,
+            #[cfg(feature = "pdfa")]
+            Self::PdfAExtension => "http://www.aiim.org/pdfa/ns/extension/",
+            #[cfg(feature = "pdfa")]
+            Self::PdfASchema => "http://www.aiim.org/pdfa/ns/schema#",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAProperty => "http://www.aiim.org/pdfa/ns/property#",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAType => "http://www.aiim.org/pdfa/ns/type#",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAField => "http://www.aiim.org/pdfa/ns/field#",
+            Self::Custom(custom) => custom.url,
         }
     }
 
     /// Returns the prefix for the namespace.
-    pub fn prefix(&self) -> &str {
+    pub fn prefix(&self) -> &'a str {
         match self {
             Self::Rdf => "rdf",
             Self::DublinCore => "dc",
@@ -82,9 +150,20 @@ impl Namespace<'_> {
             Self::XmpImage => "xmpGImg",
             Self::AdobePdf => "pdf",
             Self::XmpIdq => "xmpidq",
+            #[cfg(feature = "pdfa")]
             Self::PdfAId => "pdfaid",
             Self::PdfXId => "pdfxid",
-            Self::Custom((namespace, _)) => namespace,
+            #[cfg(feature = "pdfa")]
+            Self::PdfAExtension => "pdfaExtension",
+            #[cfg(feature = "pdfa")]
+            Self::PdfASchema => "pdfaSchema",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAProperty => "pdfaProperty",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAType => "pdfaType",
+            #[cfg(feature = "pdfa")]
+            Self::PdfAField => "pdfaField",
+            Self::Custom(custom) => custom.namespace,
         }
     }
 }

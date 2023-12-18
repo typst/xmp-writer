@@ -42,10 +42,15 @@ println!("{}", writer.finish(None));
 
 #![deny(missing_docs)]
 
+#[cfg(feature = "pdfa")]
+pub mod pdfa;
 mod types;
 
 use std::collections::BTreeSet;
 use std::fmt::Write;
+
+#[cfg(feature = "pdfa")]
+use pdfa::PdfAExtSchemasWriter;
 
 pub use types::*;
 
@@ -69,6 +74,7 @@ macro_rules! deref {
         }
     };
 }
+pub(crate) use deref;
 
 /// The main writer struct.
 ///
@@ -670,20 +676,51 @@ impl XmpWriter<'_> {
 }
 
 /// PDF/A and PDF/X.
-impl XmpWriter<'_> {
+impl<'n> XmpWriter<'n> {
     /// Write the `pdfaid:part` property.
     ///
     /// The part of the PDF/A standard to which the document conforms (e.g.
-    /// `"1", "4"`)
-    pub fn pdfa_part(&mut self, part: &str) -> &mut Self {
+    /// `1, 4`)
+    #[cfg(feature = "pdfa")]
+    pub fn pdfa_part(&mut self, part: i32) -> &mut Self {
         self.element("part", Namespace::PdfAId).value(part);
         self
+    }
+
+    /// Write the `pdfaid:amd` property.
+    ///
+    /// The amendment specifier this file conforms to, if any.
+    #[cfg(feature = "pdfa")]
+    pub fn pdfa_amd(&mut self, amd: &str) -> &mut Self {
+        self.element("amd", Namespace::PdfAId).value(amd);
+        self
+    }
+
+    /// Write the `pdfaid:corr` property.
+    ///
+    /// The corrigendum specifier this file conforms to, if any.
+    #[cfg(feature = "pdfa")]
+    pub fn pdfa_corr(&mut self, corr: &str) -> &mut Self {
+        self.element("corr", Namespace::PdfAId).value(corr);
+        self
+    }
+
+    /// Start writing the `pdfaExtension:schemas` property.
+    ///
+    /// Description of all extension schemas used in the document.
+    #[cfg(feature = "pdfa")]
+    pub fn extension_schemas(&mut self) -> PdfAExtSchemasWriter<'_, 'n> {
+        PdfAExtSchemasWriter::start(
+            self.element("schemas", Namespace::PdfAExtension)
+                .array(RdfCollectionType::Bag),
+        )
     }
 
     /// Write the `pdfaid:conformance` property.
     ///
     /// The conformance level of the PDF/A standard to which the document
     /// conforms (e.g. `"A", "B"`)
+    #[cfg(feature = "pdfa")]
     pub fn pdfa_conformance(&mut self, conformance: &str) -> &mut Self {
         self.element("conformance", Namespace::PdfAId).value(conformance);
         self

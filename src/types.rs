@@ -164,7 +164,7 @@ impl<'a, 'n: 'a> Element<'a, 'n> {
     }
 
     /// Start writing an unordered array (`rdf:Bag`) as the property value.
-    pub fn unordered_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
+    pub fn unordered_array(self, items: impl IntoIterator<Item = impl XmpType>) {
         let mut array = self.array(RdfCollectionType::Bag);
         for item in items {
             array.element().value(item);
@@ -172,7 +172,7 @@ impl<'a, 'n: 'a> Element<'a, 'n> {
     }
 
     /// Start writing an ordered array (`rdf:Seq`) as the property value.
-    pub fn ordered_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
+    pub fn ordered_array(self, items: impl IntoIterator<Item = impl XmpType>) {
         let mut array = self.array(RdfCollectionType::Seq);
         for item in items {
             array.element().value(item);
@@ -180,7 +180,7 @@ impl<'a, 'n: 'a> Element<'a, 'n> {
     }
 
     /// Start writing an alternative array (`rdf:Alt`) as the property value.
-    pub fn alternative_array<'b>(self, items: impl IntoIterator<Item = impl XmpType>) {
+    pub fn alternative_array(self, items: impl IntoIterator<Item = impl XmpType>) {
         let mut array = self.array(RdfCollectionType::Alt);
         for item in items {
             array.element().value(item);

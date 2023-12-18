@@ -74,6 +74,7 @@ macro_rules! deref {
 ///
 /// Use [`XmpWriter::new`] to create a new instance and get the resulting XMP
 /// metadata by calling [`XmpWriter::finish`].
+#[derive(Default)]
 pub struct XmpWriter<'a> {
     pub(crate) buf: String,
     namespaces: BTreeSet<Namespace<'a>>,
@@ -82,7 +83,7 @@ pub struct XmpWriter<'a> {
 impl<'n> XmpWriter<'n> {
     /// Create a new XMP writer.
     pub fn new() -> XmpWriter<'n> {
-        Self { buf: String::new(), namespaces: BTreeSet::new() }
+        Self::default()
     }
 
     /// Add a custom element to the XMP metadata.
@@ -437,7 +438,7 @@ impl<'n> XmpWriter<'n> {
     /// Start writing the `xmpMM:History` property.
     ///
     /// A list of actions taken on the document.
-    pub fn history<'a>(&mut self) -> ResourceEventsWriter<'_, 'n> {
+    pub fn history(&mut self) -> ResourceEventsWriter<'_, 'n> {
         ResourceEventsWriter::start(
             self.element("History", Namespace::XmpMedia)
                 .array(RdfCollectionType::Seq),
@@ -447,7 +448,7 @@ impl<'n> XmpWriter<'n> {
     /// Write the `xmpMM:Ingredients` property.
     ///
     /// A list of resources that were used to create the document.
-    pub fn ingredients<'a>(&mut self) -> ResourceRefsWriter<'_, 'n> {
+    pub fn ingredients(&mut self) -> ResourceRefsWriter<'_, 'n> {
         ResourceRefsWriter::start(
             self.element("Ingredients", Namespace::XmpMedia)
                 .array(RdfCollectionType::Bag),

@@ -2,14 +2,15 @@
 [![Crates.io](https://img.shields.io/crates/v/xmp-writer.svg)](https://crates.io/crates/xmp-writer)
 [![Documentation](https://docs.rs/xmp-writer/badge.svg)](https://docs.rs/xmp-writer)
 
-Write XMP metadata, step by step.
+Write [XMP] metadata, step by step.
 
 ```toml
 [dependencies]
 xmp-writer = "0.2"
 ```
 
-XMP is a metadata format developed by Adobe. It is either embedded into
+[XMP] is an ISO standard specifying a metadata format for files,
+originally developed by Adobe. It is either embedded into
 files (e.g. PDF, JPEG, TIFF) or stored in a separate "side-car" file.
 
 This crate provides a simple API to write XMP metadata. Start by creating
@@ -52,3 +53,5 @@ This crate forbids unsafe code and has no dependencies.
 
 ## License
 This crate is dual-licensed under the MIT and Apache 2.0 licenses.
+
+[XMP]: https://en.wikipedia.org/wiki/Extensible_Metadata_Platform

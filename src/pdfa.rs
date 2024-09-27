@@ -374,6 +374,21 @@ impl<'a, 'n: 'a> PdfAExtSchemasWriter<'a, 'n> {
     pub fn xmp_media_management(&mut self) -> XmpMMDescsWriter<'_, 'n> {
         XmpMMDescsWriter::start(self.add_schema())
     }
+
+    /// Start describing the `xmpTPg` schema.
+    pub fn paged_text(&mut self) -> PagedTextDescsWriter<'_, 'n> {
+        PagedTextDescsWriter::start(self.add_schema())
+    }
+
+    /// Start describing the `stEvt` auxiliary schema.
+    pub fn resource_event(&mut self) -> ResourceEventDescsWriter<'_, 'n> {
+        ResourceEventDescsWriter::start(self.add_schema())
+    }
+
+    /// Start describing the `xmpGImg` schema.
+    pub fn thumbnail(&mut self) -> ThumbnailSchemaWriter<'_, 'n> {
+        ThumbnailSchemaWriter::start(self.add_schema())
+    }
 }
 
 deref!('a, 'n, PdfAExtSchemasWriter<'a, 'n> => Array<'a, 'n>, array);
@@ -409,6 +424,11 @@ impl<'a, 'n: 'a> XmpPropertiesWriter<'a, 'n> {
             .name("Rating")
             .value_type("Integer");
         self
+    }
+
+    /// Describe all properties of the `xmp` schema.
+    pub fn describe_all(mut self) {
+        self.describe_label().describe_rating();
     }
 }
 
@@ -485,6 +505,14 @@ impl<'a, 'n: 'a> XmpMMPropertiesWriter<'a, 'n> {
             .name("Pantry")
             .value_type("ResourceRef");
         self
+    }
+
+    /// Describe all properties of the `xmpMM` schema.
+    pub fn describe_all(mut self) {
+        self.describe_instance_id()
+            .describe_ingredients()
+            .describe_original_doc_id()
+            .describe_pantry();
     }
 }
 
@@ -570,6 +598,14 @@ impl<'a, 'n: 'a> AdobePdfPropertiesWriter<'a, 'n> {
             .value_type("Text");
         self
     }
+
+    /// Describe all properties of the `pdf` schema.
+    pub fn describe_all(mut self) {
+        self.describe_keywords()
+            .describe_pdf_version()
+            .describe_producer()
+            .describe_trapped();
+    }
 }
 
 deref!('a, 'n, AdobePdfPropertiesWriter<'a, 'n> => PdfAExtPropertiesWriter<'a, 'n>, props);
@@ -594,3 +630,204 @@ impl<'a, 'n: 'a> AdobePdfDescsWriter<'a, 'n> {
 }
 
 deref!('a, 'n, AdobePdfDescsWriter<'a, 'n> => PdfAExtSchemaWriter<'a, 'n>, schema);
+
+/// Writer for describing the Paged Text extension schema.
+///
+/// Created by [`PdfAExtSchemasWriter::paged_text`].
+pub struct PagedTextDescsWriter<'a, 'n: 'a> {
+    schema: PdfAExtSchemaWriter<'a, 'n>,
+}
+
+impl<'a, 'n: 'a> PagedTextDescsWriter<'a, 'n> {
+    fn start(mut schema: PdfAExtSchemaWriter<'a, 'n>) -> Self {
+        schema.namespace(Namespace::AdobePdf);
+        Self { schema }
+    }
+
+    /// Start describing the properties of the `xmpTPg` schema.
+    pub fn properties(&mut self) -> PagedTextPropertiesWriter<'_, 'n> {
+        PagedTextPropertiesWriter::start(self.schema.properties())
+    }
+}
+
+deref!('a, 'n, PagedTextDescsWriter<'a, 'n> => PdfAExtSchemaWriter<'a, 'n>, schema);
+
+/// Writer for the property descriptions of the `xmpTPg` schema.
+///
+/// Created by [`PagedTextDescsWriter::properties`].
+pub struct PagedTextPropertiesWriter<'a, 'n: 'a> {
+    props: PdfAExtPropertiesWriter<'a, 'n>,
+}
+
+impl<'a, 'n: 'a> PagedTextPropertiesWriter<'a, 'n> {
+    fn start(props: PdfAExtPropertiesWriter<'a, 'n>) -> Self {
+        Self { props }
+    }
+
+    /// Describe the `xmpTPg:Colorants` property.
+    pub fn describe_keywords(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Colorants / swatches used in the document and its children")
+            .name("Colorants")
+            .value_type("Colorant");
+        self
+    }
+
+    /// Describe the `xmpTPg:Fonts` property.
+    pub fn describe_fonts(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Fonts used in the document and its children")
+            .name("Fonts")
+            .value_type("Font");
+        self
+    }
+
+    /// Describe the `xmpTPg:PlateNames` property.
+    pub fn describe_plate_names(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Plate names used in the document and its children")
+            .name("PlateNames")
+            .value_type("Text");
+        self
+    }
+
+    /// Describe all properties of the `xmpTPg` schema.
+    pub fn describe_all(mut self) {
+        self.describe_keywords().describe_fonts().describe_plate_names();
+    }
+}
+
+deref!('a, 'n, PagedTextPropertiesWriter<'a, 'n> => PdfAExtPropertiesWriter<'a, 'n>, props);
+
+/// Writer for the auxiliary ResourceEvent extension schema.
+///
+/// Created by [`PdfAExtSchemasWriter::resource_event`].
+pub struct ResourceEventDescsWriter<'a, 'n: 'a> {
+    schema: PdfAExtSchemaWriter<'a, 'n>,
+}
+
+impl<'a, 'n: 'a> ResourceEventDescsWriter<'a, 'n> {
+    fn start(mut schema: PdfAExtSchemaWriter<'a, 'n>) -> Self {
+        schema.namespace(Namespace::XmpResourceEvent);
+        Self { schema }
+    }
+
+    /// Start describing the properties of the `stEvt` schema.
+    pub fn properties(&mut self) -> ResourceEventPropertiesWriter<'_, 'n> {
+        ResourceEventPropertiesWriter::start(self.schema.properties())
+    }
+}
+
+deref!('a, 'n, ResourceEventDescsWriter<'a, 'n> => PdfAExtSchemaWriter<'a, 'n>, schema);
+
+/// Writer for the property descriptions of the `stEvt` schema.
+///     
+/// Created by [`ResourceEventDescsWriter::properties`].
+pub struct ResourceEventPropertiesWriter<'a, 'n: 'a> {
+    props: PdfAExtPropertiesWriter<'a, 'n>,
+}
+
+impl<'a, 'n: 'a> ResourceEventPropertiesWriter<'a, 'n> {
+    fn start(props: PdfAExtPropertiesWriter<'a, 'n>) -> Self {
+        Self { props }
+    }
+
+    /// Describe the `stEvt:changed` property.
+    pub fn describe_changed(&mut self) -> &mut Self {
+        self.add_property()
+            .category(false)
+            .description("semicolon-delimited list of the parts of the resource that were changed since the previous event history")
+            .name("changed")
+            .value_type("Text");
+        self
+    }
+}
+
+deref!('a, 'n, ResourceEventPropertiesWriter<'a, 'n> => PdfAExtPropertiesWriter<'a, 'n>, props);
+
+/// Writer for the thumbnail extension schema.
+///
+/// Created by [`PdfAExtSchemasWriter::thumbnail`].
+pub struct ThumbnailSchemaWriter<'a, 'n: 'a> {
+    schema: PdfAExtSchemaWriter<'a, 'n>,
+}
+
+impl<'a, 'n: 'a> ThumbnailSchemaWriter<'a, 'n> {
+    fn start(mut schema: PdfAExtSchemaWriter<'a, 'n>) -> Self {
+        schema.namespace(Namespace::XmpImage);
+        Self { schema }
+    }
+
+    /// Start describing the properties of the `xmpGImg` schema.
+    pub fn properties(&mut self) -> ThumbnailPropertiesWriter<'_, 'n> {
+        ThumbnailPropertiesWriter::start(self.schema.properties())
+    }
+}
+
+deref!('a, 'n, ThumbnailSchemaWriter<'a, 'n> => PdfAExtSchemaWriter<'a, 'n>, schema);
+
+/// Writer for the property descriptions of the `xmpGImg` schema.
+///
+/// Created by [`ThumbnailSchemaWriter::properties`].
+pub struct ThumbnailPropertiesWriter<'a, 'n: 'a> {
+    props: PdfAExtPropertiesWriter<'a, 'n>,
+}
+
+impl<'a, 'n: 'a> ThumbnailPropertiesWriter<'a, 'n> {
+    fn start(props: PdfAExtPropertiesWriter<'a, 'n>) -> Self {
+        Self { props }
+    }
+
+    /// Describe the `xmpGImg:height` property.
+    pub fn describe_height(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Height of the image in pixels")
+            .name("height")
+            .value_type("Integer");
+        self
+    }
+
+    /// Describe the `xmpGImg:image` property.
+    pub fn describe_image(&mut self) -> &mut Self {
+        self.add_property()
+            .category(false)
+            .description("Thumbnail image data in base64 encoding")
+            .name("image")
+            .value_type("Text");
+        self
+    }
+
+    /// Describe the `xmpGImg:width` property.
+    pub fn describe_width(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Width of the image in pixels")
+            .name("width")
+            .value_type("Integer");
+        self
+    }
+
+    /// Describe the `xmpGImg:format` property.
+    pub fn describe_format(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("The image encoding, i.e. JPEG")
+            .name("format")
+            .value_type("Closed Choice");
+        self
+    }
+
+    /// Describe all properties of the `xmpGImg` schema.
+    pub fn describe_all(mut self) {
+        self.describe_height()
+            .describe_image()
+            .describe_width()
+            .describe_format();
+    }
+}
+
+deref!('a, 'n, ThumbnailPropertiesWriter<'a, 'n> => PdfAExtPropertiesWriter<'a, 'n>, props);

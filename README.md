@@ -6,7 +6,7 @@ Write [XMP] metadata, step by step.
 
 ```toml
 [dependencies]
-xmp-writer = "0.2"
+xmp-writer = "0.3"
 ```
 
 [XMP] is an ISO standard specifying a metadata format for files,
@@ -38,7 +38,7 @@ colors.add_colorant().swatch_name("Red");
 colors.add_colorant().swatch_name("Green");
 drop(colors);
 
-writer.creator_tool("xmp-writer 0.2.0");
+writer.creator_tool("xmp-writer 0.3.0");
 
 println!("{}", std::str::from_utf8(&writer.finish(None)).unwrap());
 ```

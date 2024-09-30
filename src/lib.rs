@@ -29,7 +29,7 @@ colors.add_colorant().swatch_name("Red");
 colors.add_colorant().swatch_name("Green");
 drop(colors);
 
-writer.creator_tool("xmp-writer 0.2.0");
+writer.creator_tool("xmp-writer 0.3.0");
 
 println!("{}", writer.finish(None));
 ```

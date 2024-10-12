@@ -675,7 +675,7 @@ impl XmpWriter<'_> {
     }
 }
 
-/// PDF/A and PDF/X.
+/// PDF/A , PDF/UA and PDF/X.
 impl<'n> XmpWriter<'n> {
     /// Write the `pdfaid:part` property.
     ///
@@ -732,6 +732,32 @@ impl<'n> XmpWriter<'n> {
     /// `"PDF/X-3:2003"`)
     pub fn pdfx_version(&mut self, version: &str) -> &mut Self {
         self.element("GTS_PDFXVersion", Namespace::PdfXId).value(version);
+        self
+    }
+
+    /// Write the `pdfuaid:part` property.
+    ///
+    /// The part of the PDF/UA standard to which the document conforms (e.g.
+    /// `1`)
+    pub fn pdfua_part(&mut self, part: i32) -> &mut Self {
+        self.element("part", Namespace::PdfUAId).value(part);
+        self
+    }
+
+    /// Write the `pdfuaid:amd` property.
+    ///
+    /// The amendment specifier this file conforms to, if any.
+    pub fn pdfua_amd(&mut self, amd: &str) -> &mut Self {
+        self.element("amd", Namespace::PdfUAId).value(amd);
+        self
+    }
+
+    /// Write the `pdfuaid:corr` property.
+    ///
+    /// The corrigendum specifier this file conforms to, if any.
+    #[cfg(feature = "pdfa")]
+    pub fn pdfua_corr(&mut self, corr: &str) -> &mut Self {
+        self.element("corr", Namespace::PdfUAId).value(corr);
         self
     }
 }

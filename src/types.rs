@@ -30,6 +30,7 @@ pub enum Namespace<'a> {
     AdobePdf,
     #[cfg(feature = "pdfa")]
     PdfAId,
+    PdfUAId,
     PdfXId,
     #[cfg(feature = "pdfa")]
     PdfAExtension,
@@ -76,6 +77,7 @@ impl<'a> Namespace<'a> {
             Self::XmpIdq => "XMP Identifier Qualifier",
             #[cfg(feature = "pdfa")]
             Self::PdfAId => "PDF/A Identification",
+            Self::PdfUAId => "PDF/UA Identification",
             Self::PdfXId => "PDF/X Identification",
             #[cfg(feature = "pdfa")]
             Self::PdfAExtension => "PDF/A Extension schema container",
@@ -114,6 +116,7 @@ impl<'a> Namespace<'a> {
             Self::XmpIdq => "http://ns.adobe.com/xmp/Identifier/qual/1.0/",
             #[cfg(feature = "pdfa")]
             Self::PdfAId => "http://www.aiim.org/pdfa/ns/id/",
+            Self::PdfUAId => "http://www.aiim.org/pdfua/ns/id/",
             Self::PdfXId => "http://www.npes.org/pdfx/ns/id/",
             #[cfg(feature = "pdfa")]
             Self::PdfAExtension => "http://www.aiim.org/pdfa/ns/extension/",
@@ -152,6 +155,7 @@ impl<'a> Namespace<'a> {
             Self::XmpIdq => "xmpidq",
             #[cfg(feature = "pdfa")]
             Self::PdfAId => "pdfaid",
+            Self::PdfUAId => "pdfuaid",
             Self::PdfXId => "pdfxid",
             #[cfg(feature = "pdfa")]
             Self::PdfAExtension => "pdfaExtension",

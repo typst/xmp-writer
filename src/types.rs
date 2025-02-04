@@ -785,7 +785,7 @@ pub enum DimensionUnit<'a> {
     Custom(&'a str),
 }
 
-impl<'a> XmpType for DimensionUnit<'a> {
+impl XmpType for DimensionUnit<'_> {
     fn write(&self, buf: &mut String) {
         match self {
             Self::Inch => buf.push_str("inch"),
@@ -808,7 +808,7 @@ pub enum FontType<'a> {
     Custom(&'a str),
 }
 
-impl<'a> XmpType for FontType<'a> {
+impl XmpType for FontType<'_> {
     fn write(&self, buf: &mut String) {
         match self {
             Self::TrueType => buf.push_str("TrueType"),

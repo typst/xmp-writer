@@ -253,7 +253,7 @@ impl XmpWriter<'_> {
     }
 
     /// Write the `dc:subject` property.
-    ///    
+    ///
     /// A list of phrases or keywords that specify the topic of the resource.
     pub fn subject<'a>(
         &mut self,
@@ -755,7 +755,6 @@ impl<'n> XmpWriter<'n> {
     /// Write the `pdfuaid:corr` property.
     ///
     /// The corrigendum specifier this file conforms to, if any.
-    #[cfg(feature = "pdfa")]
     pub fn pdfua_corr(&mut self, corr: &str) -> &mut Self {
         self.element("corr", Namespace::PdfUAId).value(corr);
         self
@@ -1308,7 +1307,7 @@ impl<'a, 'n: 'a> ColorantWriter<'a, 'n> {
     }
 
     /// Write the `xmpG:a` property.
-    ///     
+    ///
     /// The `a` value of a colorant with `xmpG:colorantMode` set to `Lab`.
     pub fn a(&mut self, a: i32) -> &mut Self {
         self.stc.element("A", Namespace::XmpColorant).value(a);

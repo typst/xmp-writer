@@ -1,6 +1,6 @@
 [package]
 name = "xmp-writer"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Martin Haug <mhaug@live.de>"]
 edition = "2021"
 description = "Write XMP metadata, step by step."

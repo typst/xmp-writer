@@ -726,6 +726,15 @@ impl<'n> XmpWriter<'n> {
         self
     }
 
+    /// Write the `pdfaid:rev` property.
+    ///
+    /// Four-digit year of the date of publication or revision.
+    #[cfg(feature = "pdfa")]
+    pub fn pdfa_rev(&mut self, rev: i32) -> &mut Self {
+        self.element("rev", Namespace::PdfAId).value(rev);
+        self
+    }
+
     /// Write the `pdfxid:GTS_PDFXVersion` property.
     ///
     /// The version of the PDF/X standard to which the document conforms (e.g.

@@ -728,7 +728,7 @@ impl<'n> XmpWriter<'n> {
 
     /// Write the `pdfaid:rev` property.
     ///
-    /// Four year digit year of the date of publication or revision.
+    /// Four-digit year of the date of publication or revision.
     #[cfg(feature = "pdfa")]
     pub fn pdfa_rev(&mut self, rev: i32) -> &mut Self {
         self.element("rev", Namespace::PdfAId).value(rev);

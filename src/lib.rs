@@ -755,7 +755,8 @@ impl<'n> XmpWriter<'n> {
 
     /// Write the `pdfuaid:amd` property.
     ///
-    /// The amendment specifier this file conforms to, if any.
+    /// The amendment specifier this file conforms to, if any. Specific to
+    /// PDF/UA-1.
     pub fn pdfua_amd(&mut self, amd: &str) -> &mut Self {
         self.element("amd", Namespace::PdfUAId).value(amd);
         self
@@ -763,9 +764,21 @@ impl<'n> XmpWriter<'n> {
 
     /// Write the `pdfuaid:corr` property.
     ///
-    /// The corrigendum specifier this file conforms to, if any.
+    /// The corrigendum specifier this file conforms to, if any. In practice,
+    /// this should never appear since no corrigenda have been published for
+    /// PDF/UA, and ISO does not allow for new corrigenda to be added to ISO
+    /// 14289.
     pub fn pdfua_corr(&mut self, corr: &str) -> &mut Self {
         self.element("corr", Namespace::PdfUAId).value(corr);
+        self
+    }
+
+    /// Write the `pdfuaid:rev` property.
+    ///
+    /// Four-digit year of the date of publication or revision. Specific to
+    /// PDF/UA-2.
+    pub fn pdfua_rev(&mut self, rev: i32) -> &mut Self {
+        self.element("rev", Namespace::PdfUAId).value(rev);
         self
     }
 }

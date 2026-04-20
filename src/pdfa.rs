@@ -360,6 +360,11 @@ impl<'a, 'n: 'a> PdfAExtSchemasWriter<'a, 'n> {
         self
     }
 
+    /// Start describing the `pdfuaid` schema.
+    pub fn pdfua_id(&mut self) -> PdfUAIdSchemaWriter<'_, 'n> {
+        PdfUAIdSchemaWriter::start(self.add_schema())
+    }
+
     /// Start describing the `pdf` schema.
     pub fn pdf(&mut self) -> AdobePdfDescsWriter<'_, 'n> {
         AdobePdfDescsWriter::start(self.add_schema())
@@ -831,3 +836,111 @@ impl<'a, 'n: 'a> ThumbnailPropertiesWriter<'a, 'n> {
 }
 
 deref!('a, 'n, ThumbnailPropertiesWriter<'a, 'n> => PdfAExtPropertiesWriter<'a, 'n>, props);
+
+/// Writer for the PDF/UA ID extension schema.
+///
+/// Created by [`PdfAExtSchemasWriter::pdfua_id`].
+pub struct PdfUAIdSchemaWriter<'a, 'n: 'a> {
+    schema: PdfAExtSchemaWriter<'a, 'n>,
+}
+
+impl<'a, 'n: 'a> PdfUAIdSchemaWriter<'a, 'n> {
+    fn start(mut schema: PdfAExtSchemaWriter<'a, 'n>) -> Self {
+        schema.namespace(Namespace::PdfUAId);
+        Self { schema }
+    }
+
+    /// Start describing the properties of the `pdfuaId` schema.
+    pub fn properties(&mut self) -> PdfUAIdPropertiesWriter<'_, 'n> {
+        PdfUAIdPropertiesWriter::start(self.schema.properties())
+    }
+}
+
+deref!('a, 'n, PdfUAIdSchemaWriter<'a, 'n> => PdfAExtSchemaWriter<'a, 'n>, schema);
+
+/// Writer for the property descriptions of the `pdfuaid` schema.
+///
+/// Created by [`PdfUAIdSchemaWriter::properties`].
+pub struct PdfUAIdPropertiesWriter<'a, 'n: 'a> {
+    props: PdfAExtPropertiesWriter<'a, 'n>,
+}
+
+impl<'a, 'n: 'a> PdfUAIdPropertiesWriter<'a, 'n> {
+    fn start(props: PdfAExtPropertiesWriter<'a, 'n>) -> Self {
+        Self { props }
+    }
+
+    /// Describe the `pdfuaid:part` property.
+    pub fn describe_part(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Part Number of ISO 14289 (PDF/UA)")
+            .name("part")
+            .value_type("Integer");
+        self
+    }
+
+    /// Describe the `pdfuaid:amd` property.
+    pub fn describe_amd(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Amendment Number, Colon, and four-digit year of the publication of ISO 14289 (PDF/UA)")
+            .name("amd")
+            .value_type("Text");
+        self
+    }
+
+    /// Describe the `pdfuaid:corr` property.
+    pub fn describe_corr(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Number of the technical corrigendum to ISO 14289 (PDF/UA)")
+            .name("corr")
+            .value_type("Text");
+        self
+    }
+
+    /// Describe the `pdfuaid:rev` property.
+    pub fn describe_rev(&mut self) -> &mut Self {
+        self.add_property()
+            .category(true)
+            .description("Revision of ISO 14289 (PDF/UA) as a four-digit year")
+            .name("rev")
+            .value_type("Integer");
+        self
+    }
+
+    /// Describe the applicable properties of the `pdfuaid` schema.
+    pub fn describe_all(mut self, mode: PdfUAIdDescriptionMode) {
+        let writer = self.describe_part();
+
+        match mode {
+            PdfUAIdDescriptionMode::UA1 => writer.describe_amd(),
+            PdfUAIdDescriptionMode::UA2 => writer.describe_rev(),
+            PdfUAIdDescriptionMode::AllAlive => writer.describe_amd().describe_rev(),
+            PdfUAIdDescriptionMode::All => {
+                writer.describe_amd().describe_corr().describe_rev()
+            }
+        };
+    }
+}
+
+/// Which properties of the `pdfuaid` schema to describe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PdfUAIdDescriptionMode {
+    /// Only describe properties defined by PDF/UA-1. This omits `pdfuaid:corr`
+    /// since no technical corrigenda to PDF/UA exist and ISO discontinued
+    /// publishing any.
+    UA1,
+    /// Only describe properties defined by PDF/UA-2.
+    UA2,
+    /// Describe all properties of the `pdfuaid` schema, except for
+    /// `pdfuaid:corr`, since no technical corrigenda to PDF/UA exist and ISO
+    /// discontinued publishing any.
+    #[default]
+    AllAlive,
+    /// Describe all properties of the `pdfuaid` schema, including `pdfuaid:corr`.
+    All,
+}
+
+deref!('a, 'n, PdfUAIdPropertiesWriter<'a, 'n> => PdfAExtPropertiesWriter<'a, 'n>, props);

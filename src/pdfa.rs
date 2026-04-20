@@ -645,7 +645,7 @@ pub struct PagedTextDescsWriter<'a, 'n: 'a> {
 
 impl<'a, 'n: 'a> PagedTextDescsWriter<'a, 'n> {
     fn start(mut schema: PdfAExtSchemaWriter<'a, 'n>) -> Self {
-        schema.namespace(Namespace::AdobePdf);
+        schema.namespace(Namespace::XmpPaged);
         Self { schema }
     }
 

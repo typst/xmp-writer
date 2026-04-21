@@ -38,7 +38,7 @@ colors.add_colorant().swatch_name("Red");
 colors.add_colorant().swatch_name("Green");
 drop(colors);
 
-writer.creator_tool("xmp-writer 0.3.0");
+writer.creator_tool("xmp-writer 0.3.3");
 
 println!("{}", std::str::from_utf8(&writer.finish(None)).unwrap());
 ```

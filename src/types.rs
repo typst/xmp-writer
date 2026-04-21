@@ -53,6 +53,13 @@ pub struct CustomNamespace<'a> {
     url: &'a str,
 }
 
+impl<'a> CustomNamespace<'a> {
+    /// Creates a new custom namespace.
+    pub fn new(name: &'a str, namespace: &'a str, url: &'a str) -> Self {
+        Self { name, namespace, url }
+    }
+}
+
 impl<'a> Namespace<'a> {
     /// Returns a human-readable name for the namespace.
     pub const fn name(&self) -> &'a str {

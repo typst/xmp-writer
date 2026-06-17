@@ -117,7 +117,7 @@ impl<'a> Namespace<'a> {
             Self::XmpMedia => "http://ns.adobe.com/xap/1.0/mm/",
             Self::XmpJobManagement => "http://ns.adobe.com/xap/1.0/bj/",
             Self::XmpPaged => "http://ns.adobe.com/xap/1.0/t/pg/",
-            Self::XmpDynamicMedia => "http://ns.adobe.com/xap/1.0/DynamicMedia/",
+            Self::XmpDynamicMedia => "http://ns.adobe.com/xmp/1.0/DynamicMedia/",
             Self::XmpImage => "http://ns.adobe.com/xap/1.0/g/img/",
             Self::AdobePdf => "http://ns.adobe.com/pdf/1.3/",
             Self::XmpIdq => "http://ns.adobe.com/xmp/Identifier/qual/1.0/",

@@ -571,7 +571,7 @@ impl<'n> XmpWriter<'n> {
     /// A reference to jobs in a system that involves this resource.
     pub fn jobs(&mut self) -> JobsWriter<'_, 'n> {
         JobsWriter::start(
-            self.element("Job", Namespace::XmpJobManagement)
+            self.element("JobRef", Namespace::XmpJobManagement)
                 .array(RdfCollectionType::Bag),
         )
     }

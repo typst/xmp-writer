@@ -71,7 +71,7 @@ impl<'a> Namespace<'a> {
             Self::XmpResourceRef => "XMP Resource Reference",
             Self::XmpResourceEvent => "XMP Resource Event",
             Self::XmpVersion => "XMP Version",
-            Self::XmpJob => "XMP Job Management",
+            Self::XmpJob => "XMP Job",
             Self::XmpColorant => "XMP Colorant",
             Self::XmpFont => "XMP Font",
             Self::XmpDimensions => "XMP Dimensions",

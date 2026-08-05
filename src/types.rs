@@ -61,6 +61,42 @@ impl<'a> CustomNamespace<'a> {
 }
 
 impl<'a> Namespace<'a> {
+    /// All namespaces this crate knows natively.
+    pub const PREDEFINED: &'static [Namespace<'static>] = &[
+        Namespace::Rdf,
+        Namespace::DublinCore,
+        Namespace::Xmp,
+        Namespace::XmpRights,
+        Namespace::XmpResourceRef,
+        Namespace::XmpResourceEvent,
+        Namespace::XmpVersion,
+        Namespace::XmpJob,
+        Namespace::XmpJobManagement,
+        Namespace::XmpColorant,
+        Namespace::XmpFont,
+        Namespace::XmpDimensions,
+        Namespace::XmpMedia,
+        Namespace::XmpPaged,
+        Namespace::XmpDynamicMedia,
+        Namespace::XmpImage,
+        Namespace::XmpIdq,
+        Namespace::AdobePdf,
+        #[cfg(feature = "pdfa")]
+        Namespace::PdfAId,
+        Namespace::PdfUAId,
+        Namespace::PdfXId,
+        #[cfg(feature = "pdfa")]
+        Namespace::PdfAExtension,
+        #[cfg(feature = "pdfa")]
+        Namespace::PdfASchema,
+        #[cfg(feature = "pdfa")]
+        Namespace::PdfAProperty,
+        #[cfg(feature = "pdfa")]
+        Namespace::PdfAType,
+        #[cfg(feature = "pdfa")]
+        Namespace::PdfAField,
+    ];
+
     /// Returns a human-readable name for the namespace.
     pub const fn name(&self) -> &'a str {
         match self {

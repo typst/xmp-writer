@@ -219,7 +219,8 @@ impl<'a> Namespace<'a> {
 ///
 /// Created by [`XmpWriter::element`], [`Array::element`],
 /// [`Array::element_with_attrs`], [`Struct::element`],
-/// [`Struct::element_with_attrs`].
+/// [`Struct::element_with_attrs`], [`Element::qualified`],
+/// [`Qualified::qualifier`].
 pub struct Element<'a, 'n: 'a> {
     writer: &'a mut XmpWriter<'n>,
     name: &'a str,
@@ -256,6 +257,15 @@ impl<'a, 'n: 'a> Element<'a, 'n> {
         self.writer.buf.push('>');
         val.write(&mut self.writer.buf);
         self.close();
+    }
+
+    /// Sets the property to a value written by `value` and starts writing its
+    /// general qualifiers.
+    pub fn qualified(self, value: impl FnOnce(Element<'_, 'n>)) -> Qualified<'a, 'n> {
+        self.writer.namespaces.insert(Namespace::Rdf);
+        self.writer.buf.push_str("><rdf:Description>");
+        value(Element::start(self.writer, "value", Namespace::Rdf));
+        Qualified::start(self.writer, self.name, self.namespace)
     }
 
     /// Start writing a struct as the property value.
@@ -404,6 +414,46 @@ impl<'a, 'n: 'a> Struct<'a, 'n> {
 impl Drop for Struct<'_, '_> {
     fn drop(&mut self) {
         write!(self.writer.buf, "</{}:{}>", self.namespace.prefix(), self.name).unwrap();
+    }
+}
+
+/// An XMP value with general qualifiers.
+///
+/// Created by [`Element::qualified`].
+pub struct Qualified<'a, 'n: 'a> {
+    writer: &'a mut XmpWriter<'n>,
+    name: &'a str,
+    namespace: Namespace<'a>,
+}
+
+impl<'a, 'n: 'a> Qualified<'a, 'n> {
+    fn start(
+        writer: &'a mut XmpWriter<'n>,
+        name: &'a str,
+        namespace: Namespace<'n>,
+    ) -> Self {
+        Self { writer, name, namespace }
+    }
+
+    /// Start writing a qualifier.
+    pub fn qualifier(
+        &mut self,
+        name: &'a str,
+        namespace: Namespace<'n>,
+    ) -> Element<'_, 'n> {
+        Element::start(self.writer, name, namespace)
+    }
+}
+
+impl Drop for Qualified<'_, '_> {
+    fn drop(&mut self) {
+        write!(
+            self.writer.buf,
+            "</rdf:Description></{}:{}>",
+            self.namespace.prefix(),
+            self.name
+        )
+        .unwrap();
     }
 }
 

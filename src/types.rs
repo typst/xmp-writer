@@ -258,6 +258,14 @@ impl<'a, 'n: 'a> Element<'a, 'n> {
         self.close();
     }
 
+    /// Sets the property to a URI (`rdf:resource`).
+    pub fn resource(self, uri: &str) {
+        self.writer.namespaces.insert(Namespace::Rdf);
+        self.writer.buf.push_str(" rdf:resource=\"");
+        uri.write(&mut self.writer.buf);
+        self.writer.buf.push_str("\"/>");
+    }
+
     /// Start writing a struct as the property value.
     pub fn obj(self) -> Struct<'a, 'n> {
         self.writer.namespaces.insert(Namespace::Rdf);

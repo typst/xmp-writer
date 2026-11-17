@@ -606,7 +606,9 @@ impl XmpType for DateTime {
             write!(buf, "-{:02}", self.month?).unwrap();
             write!(buf, "-{:02}", self.day?).unwrap();
             write!(buf, "T{:02}:{:02}", self.hour?, self.minute?).unwrap();
-            write!(buf, ":{:02}", self.second?).unwrap();
+            if let Some(second) = self.second {
+                write!(buf, ":{:02}", second).unwrap();
+            }
             match self.timezone? {
                 Timezone::Utc => buf.push('Z'),
                 Timezone::Local { hour, minute } => {

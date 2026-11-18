@@ -258,8 +258,8 @@ impl<'a, 'n: 'a> Element<'a, 'n> {
         self.close();
     }
 
-    /// Sets the property to a URI (`rdf:resource`).
-    pub fn resource(self, uri: &str) {
+    /// Sets the property to a URI or URL.
+    pub fn uri(self, uri: &str) {
         self.writer.namespaces.insert(Namespace::Rdf);
         self.writer.buf.push_str(" rdf:resource=\"");
         uri.write(&mut self.writer.buf);

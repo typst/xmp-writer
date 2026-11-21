@@ -292,7 +292,7 @@ impl<'n> XmpWriter<'n> {
     ///
     /// The base URL for relative URLs in the document.
     pub fn base_url(&mut self, url: &str) -> &mut Self {
-        self.element("BaseURL", Namespace::Xmp).value(url);
+        self.element("BaseURL", Namespace::Xmp).uri(url);
         self
     }
 
@@ -489,7 +489,7 @@ impl<'n> XmpWriter<'n> {
     ///
     /// The URI of the document in the management system.
     pub fn manage_to(&mut self, uri: &str) -> &mut Self {
-        self.element("ManageTo", Namespace::XmpMedia).value(uri);
+        self.element("ManageTo", Namespace::XmpMedia).uri(uri);
         self
     }
 
@@ -497,7 +497,7 @@ impl<'n> XmpWriter<'n> {
     ///
     /// A web page that allows the user to manage the document.
     pub fn manage_ui(&mut self, uri: &str) -> &mut Self {
-        self.element("ManageUI", Namespace::XmpMedia).value(uri);
+        self.element("ManageUI", Namespace::XmpMedia).uri(uri);
         self
     }
 
@@ -887,7 +887,7 @@ impl<'a, 'n: 'a> ResourceRefWriter<'a, 'n> {
     ///
     /// The path or URL to the resource.
     pub fn file_path(&mut self, path: &str) -> &mut Self {
-        self.stc.element("filePath", Namespace::XmpResourceRef).value(path);
+        self.stc.element("filePath", Namespace::XmpResourceRef).uri(path);
         self
     }
 
@@ -931,7 +931,7 @@ impl<'a, 'n: 'a> ResourceRefWriter<'a, 'n> {
     ///
     /// The URI of the resource prior to being managed. See [`XmpWriter::manage_to`].
     pub fn manage_to(&mut self, uri: &str) -> &mut Self {
-        self.stc.element("manageTo", Namespace::XmpResourceRef).value(uri);
+        self.stc.element("manageTo", Namespace::XmpResourceRef).uri(uri);
         self
     }
 
@@ -939,7 +939,7 @@ impl<'a, 'n: 'a> ResourceRefWriter<'a, 'n> {
     ///
     /// An URI to the user interface of the application that manages the resource. See [`XmpWriter::manage_ui`].
     pub fn manage_ui(&mut self, uri: &str) -> &mut Self {
-        self.stc.element("manageTo", Namespace::XmpResourceRef).value(uri);
+        self.stc.element("manageUI", Namespace::XmpResourceRef).uri(uri);
         self
     }
 
@@ -1257,7 +1257,7 @@ impl<'a, 'n: 'a> JobWriter<'a, 'n> {
     ///
     /// Reference an external job management file.
     pub fn url(&mut self, url: &str) -> &mut Self {
-        self.stc.element("url", Namespace::XmpJob).value(url);
+        self.stc.element("url", Namespace::XmpJob).uri(url);
         self
     }
 }

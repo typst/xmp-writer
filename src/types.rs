@@ -241,6 +241,7 @@ impl<'a, 'n: 'a> Element<'a, 'n> {
         namespace: Namespace<'n>,
         attrs: impl IntoIterator<Item = (&'b str, &'b str)>,
     ) -> Self {
+        writer.newline();
         write!(writer.buf, "<{}:{}", namespace.prefix(), name).unwrap();
 
         for (key, value) in attrs {
@@ -340,7 +341,10 @@ impl<'a, 'n: 'a> Array<'a, 'n> {
         namespace: Namespace<'n>,
     ) -> Self {
         writer.namespaces.insert(Namespace::Rdf);
+        writer.depth += 1;
+        writer.newline();
         write!(writer.buf, "<rdf:{}>", kind.rdf_type()).unwrap();
+        writer.depth += 1;
         Self { writer, kind, name, namespace }
     }
 
@@ -360,14 +364,12 @@ impl<'a, 'n: 'a> Array<'a, 'n> {
 
 impl Drop for Array<'_, '_> {
     fn drop(&mut self) {
-        write!(
-            self.writer.buf,
-            "</rdf:{}></{}:{}>",
-            self.kind.rdf_type(),
-            self.namespace.prefix(),
-            self.name
-        )
-        .unwrap();
+        self.writer.depth -= 1;
+        self.writer.newline();
+        write!(self.writer.buf, "</rdf:{}>", self.kind.rdf_type()).unwrap();
+        self.writer.depth -= 1;
+        self.writer.newline();
+        write!(self.writer.buf, "</{}:{}>", self.namespace.prefix(), self.name).unwrap();
     }
 }
 
@@ -386,6 +388,7 @@ impl<'a, 'n: 'a> Struct<'a, 'n> {
         name: &'a str,
         namespace: Namespace<'n>,
     ) -> Self {
+        writer.depth += 1;
         Self { writer, name, namespace }
     }
 
@@ -411,6 +414,8 @@ impl<'a, 'n: 'a> Struct<'a, 'n> {
 
 impl Drop for Struct<'_, '_> {
     fn drop(&mut self) {
+        self.writer.depth -= 1;
+        self.writer.newline();
         write!(self.writer.buf, "</{}:{}>", self.namespace.prefix(), self.name).unwrap();
     }
 }

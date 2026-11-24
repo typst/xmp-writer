@@ -84,12 +84,42 @@ pub(crate) use deref;
 pub struct XmpWriter<'a> {
     pub(crate) buf: String,
     namespaces: BTreeSet<Namespace<'a>>,
+    settings: Settings,
+    depth: usize,
+}
+
+/// Settings that control how the XMP metadata is serialized.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Settings {
+    /// Whether to enable pretty-writing.
+    ///
+    /// _Default value_: `false`.
+    pub pretty: bool,
+}
+
+const INDENT: usize = 2;
+const PROPERTY_LEVEL: usize = 3;
+
+fn newline(buf: &mut String, pretty: bool, level: usize) {
+    if pretty {
+        buf.push('\n');
+        buf.extend(std::iter::repeat_n(' ', INDENT * level));
+    }
 }
 
 impl<'n> XmpWriter<'n> {
     /// Create a new XMP writer.
     pub fn new() -> XmpWriter<'n> {
         Self::default()
+    }
+
+    /// Create a new XMP writer with the given settings.
+    pub fn with_settings(settings: Settings) -> XmpWriter<'n> {
+        Self { settings, ..Self::default() }
+    }
+
+    fn newline(&mut self) {
+        newline(&mut self.buf, self.settings.pretty, self.depth + PROPERTY_LEVEL);
     }
 
     /// Add a custom element to the XMP metadata.
@@ -104,25 +134,38 @@ impl<'n> XmpWriter<'n> {
 
     /// Finish the XMP metadata and return it as a byte vector.
     pub fn finish(self, about: Option<&str>) -> String {
+        let pretty = self.settings.pretty;
         let mut buf = String::with_capacity(280 + self.buf.len());
         buf.push_str("<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>");
-
-        write!(
-            &mut buf,
-            "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"xmp-writer\"><rdf:RDF xmlns:rdf=\"{}\"><rdf:Description rdf:about=\"{}\"",
-            Namespace::Rdf.url(),
-            about.unwrap_or(""),
-        )
-        .unwrap();
+        newline(&mut buf, pretty, 0);
+        buf.push_str("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"xmp-writer\">");
+        newline(&mut buf, pretty, 1);
+        write!(buf, "<rdf:RDF xmlns:rdf=\"{}\">", Namespace::Rdf.url()).unwrap();
+        newline(&mut buf, pretty, 2);
+        write!(buf, "<rdf:Description rdf:about=\"{}\"", about.unwrap_or("")).unwrap();
 
         for namespace in self.namespaces.into_iter().filter(|ns| &Namespace::Rdf != ns) {
-            write!(&mut buf, " xmlns:{}=\"{}\" ", namespace.prefix(), namespace.url())
-                .unwrap();
+            if pretty {
+                newline(&mut buf, pretty, PROPERTY_LEVEL);
+            } else {
+                buf.push(' ');
+            }
+            write!(buf, "xmlns:{}=\"{}\"", namespace.prefix(), namespace.url()).unwrap();
+            if !pretty {
+                buf.push(' ');
+            }
         }
 
         buf.push('>');
         buf.push_str(&self.buf);
-        buf.push_str("</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end=\"r\"?>");
+        newline(&mut buf, pretty, 2);
+        buf.push_str("</rdf:Description>");
+        newline(&mut buf, pretty, 1);
+        buf.push_str("</rdf:RDF>");
+        newline(&mut buf, pretty, 0);
+        buf.push_str("</x:xmpmeta>");
+        newline(&mut buf, pretty, 0);
+        buf.push_str("<?xpacket end=\"r\"?>");
         buf
     }
 }
@@ -1570,3 +1613,48 @@ impl<'a, 'n: 'a> FontsWriter<'a, 'n> {
 }
 
 deref!('a, 'n, FontsWriter<'a, 'n> => Array<'a, 'n>, array);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pretty_output() {
+        let mut writer = XmpWriter::with_settings(Settings { pretty: true });
+        writer.format("application/pdf");
+        writer.title([(None, "Title"), (Some(LangId("de")), "Titel")]);
+        writer.history().add_event().action(ResourceEventAction::Saved);
+
+        assert_eq!(
+            writer.finish(Some("uuid:about")),
+            [
+                "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>",
+                r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="xmp-writer">"#,
+                r#"  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">"#,
+                r#"    <rdf:Description rdf:about="uuid:about""#,
+                r#"      xmlns:dc="http://purl.org/dc/elements/1.1/""#,
+                r#"      xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#""#,
+                r#"      xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/">"#,
+                r#"      <dc:format>application/pdf</dc:format>"#,
+                r#"      <dc:title>"#,
+                r#"        <rdf:Alt>"#,
+                r#"          <rdf:li xml:lang="x-default">Title</rdf:li>"#,
+                r#"          <rdf:li xml:lang="de">Titel</rdf:li>"#,
+                r#"        </rdf:Alt>"#,
+                r#"      </dc:title>"#,
+                r#"      <xmpMM:History>"#,
+                r#"        <rdf:Seq>"#,
+                r#"          <rdf:li rdf:parseType="Resource">"#,
+                r#"            <stEvt:action>saved</stEvt:action>"#,
+                r#"          </rdf:li>"#,
+                r#"        </rdf:Seq>"#,
+                r#"      </xmpMM:History>"#,
+                r#"    </rdf:Description>"#,
+                r#"  </rdf:RDF>"#,
+                r#"</x:xmpmeta>"#,
+                r#"<?xpacket end="r"?>"#,
+            ]
+            .join("\n")
+        );
+    }
+}
